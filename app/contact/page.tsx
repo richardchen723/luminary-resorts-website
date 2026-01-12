@@ -16,11 +16,47 @@ export default function ContactPage() {
     inquiryType: "reservation",
     message: "",
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle")
+  const [submitMessage, setSubmitMessage] = useState("")
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Form submitted:", formData)
-    // Handle form submission
+    setIsSubmitting(true)
+    setSubmitStatus("idle")
+    setSubmitMessage("")
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setSubmitStatus("success")
+        setSubmitMessage(data.message || "Your message has been sent successfully!")
+        // Reset form
+        setFormData({
+          name: "",
+          email: "",
+          inquiryType: "reservation",
+          message: "",
+        })
+      } else {
+        setSubmitStatus("error")
+        setSubmitMessage(data.error || "Failed to send message. Please try again.")
+      }
+    } catch (error) {
+      setSubmitStatus("error")
+      setSubmitMessage("An error occurred. Please try again later.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -37,7 +73,11 @@ export default function ContactPage() {
       {/* Hero */}
       <section className="relative h-[50vh] flex items-center justify-center mt-20">
         <div className="absolute inset-0">
-          <img src="/placeholder.svg?height=800&width=1600" alt="Contact Us" className="w-full h-full object-cover" />
+          <img
+            src="https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472339-nTitRCBzdlcfJPZ--RUuc4Z--3QS9V--DDwdL0Vm0RcW2M-69641a10e1ed8"
+            alt="Contact Us"
+            className="w-full h-full object-cover"
+          />
           <div className="absolute inset-0 bg-foreground/40" />
         </div>
         <div className="relative z-10 text-center text-white px-4">
@@ -56,7 +96,7 @@ export default function ContactPage() {
                   <Mail className="w-6 h-6 text-primary" />
                 </div>
                 <h3 className="font-serif text-lg mb-2">Email</h3>
-                <p className="text-muted-foreground">hello@luminaryresorts.com</p>
+                <p className="text-muted-foreground">richard@luminaryresorts.com</p>
               </CardContent>
             </Card>
 
@@ -66,7 +106,7 @@ export default function ContactPage() {
                   <Phone className="w-6 h-6 text-primary" />
                 </div>
                 <h3 className="font-serif text-lg mb-2">Phone</h3>
-                <p className="text-muted-foreground">(555) 123-4567</p>
+                <p className="text-muted-foreground">(404) 590-8346</p>
               </CardContent>
             </Card>
 
@@ -76,7 +116,7 @@ export default function ContactPage() {
                   <MapPin className="w-6 h-6 text-primary" />
                 </div>
                 <h3 className="font-serif text-lg mb-2">Location</h3>
-                <p className="text-muted-foreground">Point Blank, Texas</p>
+                <p className="text-muted-foreground">Coldspring, TX</p>
               </CardContent>
             </Card>
           </div>
@@ -160,8 +200,20 @@ export default function ContactPage() {
                   />
                 </div>
 
-                <Button type="submit" size="lg" className="w-full rounded-full">
-                  Send Message
+                {submitStatus === "success" && (
+                  <div className="p-4 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200">
+                    {submitMessage}
+                  </div>
+                )}
+
+                {submitStatus === "error" && (
+                  <div className="p-4 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200">
+                    {submitMessage}
+                  </div>
+                )}
+
+                <Button type="submit" size="lg" className="w-full rounded-full" disabled={isSubmitting}>
+                  {isSubmitting ? "Sending..." : "Send Message"}
                 </Button>
 
                 <p className="text-sm text-muted-foreground text-center">

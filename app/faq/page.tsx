@@ -18,10 +18,6 @@ export default function FAQPage() {
           a: "We require a minimum 2-night stay to ensure you have time to fully unwind and experience the retreat.",
         },
         {
-          q: "How far in advance should I book?",
-          a: "We recommend booking at least 2-3 weeks in advance, especially for weekends and holidays. With only 4 cabins, we fill up quickly.",
-        },
-        {
           q: "Do you offer gift certificates?",
           a: "Yes! Gift certificates are available for any amount and make a perfect gift for couples seeking a meaningful getaway.",
         },
@@ -32,11 +28,11 @@ export default function FAQPage() {
       questions: [
         {
           q: "What is your cancellation policy?",
-          a: "Cancellations made 14 days or more before check-in receive a full refund. Cancellations within 14 days are subject to a 50% cancellation fee. No refunds for cancellations within 48 hours of check-in.",
+          a: "If you cancel within 48 hours after booking, you receive a full refund. Cancellations made 14 days or more before check-in receive a full refund. Cancellations within 14 days are subject to a 50% cancellation fee. No refunds for cancellations within 48 hours of check-in.",
         },
         {
           q: "Can I modify my reservation?",
-          a: "Yes, modifications can be made up to 7 days before arrival, subject to availability. Please contact us directly to modify your booking.",
+          a: "Yes, we will try our best to accommodate your request. Just reach out to us and we'll work with you to make the necessary changes.",
         },
         {
           q: "What is your weather policy?",
@@ -49,7 +45,7 @@ export default function FAQPage() {
       questions: [
         {
           q: "What are your check-in and check-out times?",
-          a: "Check-in is at 3:00 PM and check-out is at 11:00 AM. Early check-in or late check-out may be available upon request for an additional fee, subject to availability.",
+          a: "Check-in is at 4:00 PM and check-out is at 11:00 AM. Early check-in or late check-out may be available upon request for an additional fee, subject to availability.",
         },
         {
           q: "How does self check-in work?",
@@ -57,7 +53,7 @@ export default function FAQPage() {
         },
         {
           q: "Is there someone on-site if we need assistance?",
-          a: "While we do not have 24/7 on-site staff, our concierge team is available via phone during business hours for any needs or questions.",
+          a: "While we do not have 24/7 on-site staff, our concierge team is available 24/7 via phone to assist our guests with any needs or questions.",
         },
       ],
     },
@@ -70,7 +66,7 @@ export default function FAQPage() {
         },
         {
           q: "Is food provided?",
-          a: "We provide a welcome coffee basket upon arrival. Cabins do not include full kitchens, but we can arrange for breakfast delivery or private chef experiences upon request.",
+          a: "We provide coffee and water. Breakfast is not included.",
         },
         {
           q: "Do cabins have Wi-Fi?",
@@ -80,6 +76,10 @@ export default function FAQPage() {
           q: "Are the cabins accessible?",
           a: "Due to the natural terrain of our hilltop location, not all cabins are wheelchair accessible. Please contact us to discuss specific accessibility needs.",
         },
+        {
+          q: "Do you accommodate babies?",
+          a: "Yes, we accommodate babies with a pack n play and child utensils. Please let us know when booking if you'll be bringing a baby.",
+        },
       ],
     },
     {
@@ -87,7 +87,7 @@ export default function FAQPage() {
       questions: [
         {
           q: "Are pets allowed?",
-          a: "To maintain our tranquil atmosphere and respect guests with allergies, we do not accommodate pets. Service animals are welcome with advance notice.",
+          a: "Yes, we welcome pets. There is a $50 flat pet fee. Please notify us in advance if you plan to bring your pet during your stay.",
         },
         {
           q: "Is smoking allowed?",
@@ -99,7 +99,7 @@ export default function FAQPage() {
         },
         {
           q: "Can we host events or invite additional guests?",
-          a: "Cabins are designed for the number of guests indicated at booking only. We do not accommodate events, parties, or additional visitors.",
+          a: "Each cabin only accommodates 2 guests. However, if you book multiple cabins, we can accommodate events or parties. Please let us know your plans when booking.",
         },
       ],
     },
@@ -108,15 +108,11 @@ export default function FAQPage() {
       questions: [
         {
           q: "Where are you located?",
-          a: "We are located in Point Blank, Texas, approximately 1 hour from Houston in the Sam Houston National Forest region.",
+          a: "We are located in Coldspring, Texas, 1 hour from IAH (Houston Intercontinental Airport) and 5 minutes from Lake Livingston.",
         },
         {
           q: "What is there to do nearby?",
-          a: "Lake Livingston (15 min), Sam Houston National Forest (20 min), and several charming small towns are nearby. On property, enjoy hiking trails, stargazing, and simply being in nature.",
-        },
-        {
-          q: "Do you offer experiences or activities?",
-          a: "We can arrange private experiences including couples massage, guided forest bathing, private dining, and more. Contact us for details.",
+          a: "You can bring and launch a boat at the boat launch (5 minutes away), visit Lake Livingston (5 minutes away), explore Wolf Creek Park (10 minutes away), or enjoy wine tasting at a nearby winery. On property, you can enjoy stargazing and simply being in nature.",
         },
       ],
     },

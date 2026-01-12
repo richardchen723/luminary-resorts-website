@@ -57,7 +57,7 @@ export const cabins: Cabin[] = [
 ✔︎Fire pit
 Breathe. Unplug. Come back to love
 
-Dew is one of four mirror cabins at Luminary Resorts @ Hilltop—an Asian Zen–inspired retreat that feels like stepping into a quieter version of yourself. Designed by a gifted hospitality designer, Dew leans soft and serene: clean lines, warm textures, and a gentle stillness that invites you to slow down without trying. Come for closeness, calm, and the simple luxury of having nothing urgent to do—just time, space, and a view that does the soothing for you.
+Dew is one of four mirror cabins at Luminary Resorts at Hilltop—an Asian Zen–inspired retreat that feels like stepping into a quieter version of yourself. Designed by a gifted hospitality designer, Dew leans soft and serene: clean lines, warm textures, and a gentle stillness that invites you to slow down without trying. Come for closeness, calm, and the simple luxury of having nothing urgent to do—just time, space, and a view that does the soothing for you.
 
 ★Location & The VIEW★
 Our hilltop setting is a rare find in flat East Texas—an elevated pocket of wilderness where the horizon finally opens up. From inside the cabin or out on the deck, your gaze can travel for miles over treetops that sit at (and often below) eye level, spilling into a river valley and rolling forest beyond. Watch the sky: eagles glide and circle on the thermals, making this a quiet little paradise for birdwatching. And when you're ready to trade stillness for play, Lake Livingston's boat launch is just 3 minutes away—perfect for boating, fishing, and easy water days.

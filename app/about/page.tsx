@@ -11,17 +11,14 @@ export default function AboutPage() {
       <section className="relative h-[60vh] flex items-center justify-center mt-20">
         <div className="absolute inset-0">
           <img
-            src="/placeholder.svg?height=1080&width=1920"
+            src="https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/914f82ae-397a-4a91-ada2-ad199f810403.jpeg?aki_policy=xx_large"
             alt="About Luminary Resorts"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-foreground/40" />
         </div>
         <div className="relative z-10 text-center text-white px-4">
-          <h1 className="font-serif text-5xl md:text-6xl mb-6 text-balance">Our Story</h1>
-          <p className="text-xl max-w-2xl mx-auto text-balance">
-            Creating sanctuaries for connection, one retreat at a time.
-          </p>
+          <h1 className="font-script text-6xl md:text-7xl mb-6 text-balance tracking-wide" style={{ fontFamily: 'var(--font-script)' }}>Our Story</h1>
         </div>
       </section>
 
@@ -36,21 +33,27 @@ export default function AboutPage() {
 
             <div className="space-y-6 text-muted-foreground leading-relaxed">
               <p>
-                Luminary Resorts was born from a simple truth: the world moves too fast, and our relationships often pay
-                the price. We created this hilltop sanctuary as an antidote—a place where couples can rediscover each
-                other, heal together, and reconnect with what truly matters.
+                We're Richard & Lydia, and this place was born from our own story of burnout, disconnection, and the quiet search for something real.
               </p>
 
               <p>
-                Nestled in the pine forests of East Texas, our four intimate cabins offer more than just accommodation.
-                They provide a threshold between the everyday and the extraordinary, where time slows and presence
-                becomes possible again.
+                For years, we worked in West Coast tech—endless meetings, constant notifications, the relentless pressure to always be "on." We were successful by every measure, but the long hours had taken their toll. We found ourselves exhausted, drifting apart, questioning what we were really building.
               </p>
 
               <p>
-                Every detail has been considered with intention: the placement of each cabin to maximize privacy, the
-                windows that frame nature as living art, the stillness that invites deep rest. This is not a destination
-                for doing—it's a sanctuary for being.
+                The breaking point came when we realized we were living parallel lives—together but worlds apart. We had everything we thought we wanted, yet we felt empty. So we left. We walked away from the tech world and moved to East Texas to create something different: a sanctuary where couples like us could step away from the noise and remember what it feels like to simply be present.
+              </p>
+
+              <p>
+                Luminary Resorts at Hilltop is our own journey of healing, written into every detail. These four cabins nestled in the pines are the sanctuary we wish we'd had when we were drowning in work and losing each other. Every window that frames nature, every moment of stillness—this is what saved us, and we built it for you.
+              </p>
+
+              <p>
+                If you find yourself here—tired, disconnected, longing for a moment to breathe—this is your invitation. Come slow down. Come remember what it feels like to look into each other's eyes without a screen between you. Come sit in the stillness and let the forest do the talking. Come find your way back to each other, and to yourselves. This is a place where love can breathe again, where healing happens in the quiet spaces between words, where you can finally exhale.
+              </p>
+
+              <p className="text-foreground font-medium mt-8 italic">
+                — Richard & Lydia
               </p>
             </div>
           </div>
@@ -95,33 +98,6 @@ export default function AboutPage() {
                 </p>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Image Break */}
-      <section className="relative h-[60vh]">
-        <img
-          src="/placeholder.svg?height=800&width=1600"
-          alt="Connection in nature"
-          className="w-full h-full object-cover"
-        />
-      </section>
-
-      {/* Vision */}
-      <section className="py-24">
-        <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto">
-            <h2 className="font-serif text-4xl md:text-5xl mb-8 text-center">From Texas, Across the U.S.</h2>
-            <p className="text-lg text-muted-foreground leading-relaxed text-center mb-12">
-              Luminary Resorts @ Hilltop is our first location, but not our last. We're building a collection of
-              intimate retreats across the United States—each one thoughtfully placed in nature, each one designed to
-              help couples reconnect, heal, and find stillness together.
-            </p>
-            <p className="text-lg text-muted-foreground leading-relaxed text-center">
-              Our vision is simple: to create sanctuaries where love can flourish and relationships can deepen, one
-              peaceful retreat at a time.
-            </p>
           </div>
         </div>
       </section>

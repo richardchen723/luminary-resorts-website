@@ -1,6 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Quicksand } from "next/font/google"
+import { Quicksand, Dancing_Script } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 
@@ -10,8 +10,14 @@ const quicksand = Quicksand({
   variable: "--font-sans",
 })
 
+const dancingScript = Dancing_Script({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-script",
+})
+
 export const metadata: Metadata = {
-  title: "Luminary Resorts @ Hilltop | Private Retreat in Point Blank, Texas",
+  title: "Luminary Resorts at Hilltop | Private Retreat in Coldspring, Texas",
   description:
     "Where silence reflects love. A private hilltop retreat for couples seeking romance, healing, and renewal. Four intimate cabins hidden in nature, Point Blank, Texas.",
   generator: "v0.app",
@@ -41,7 +47,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${quicksand.variable} font-sans antialiased`}>
+      <body className={`${quicksand.variable} ${dancingScript.variable} font-sans antialiased`}>
         {children}
         <Analytics />
       </body>

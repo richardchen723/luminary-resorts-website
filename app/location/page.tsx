@@ -13,14 +13,14 @@ export default function LocationPage() {
       <section className="relative h-[60vh] flex items-center justify-center mt-20">
         <div className="absolute inset-0">
           <img
-            src="/placeholder.svg?height=1080&width=1920"
-            alt="Point Blank, Texas"
+            src="https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472339-Vo7D--hPsCCHlqaYlMuWhXSRlEwgRId62ZAYR0h7Wwv4-696419c3b1e2a"
+            alt="Coldspring, Texas"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-foreground/40" />
         </div>
         <div className="relative z-10 text-center text-white px-4">
-          <h1 className="font-serif text-5xl md:text-6xl mb-6">Point Blank, Texas</h1>
+          <h1 className="font-serif text-5xl md:text-6xl mb-6">Coldspring, TX</h1>
           <p className="text-xl max-w-2xl mx-auto text-balance">
             Nestled in the heart of East Texas, where forest meets tranquility.
           </p>
@@ -33,24 +33,41 @@ export default function LocationPage() {
           <div className="text-center mb-16">
             <h2 className="font-serif text-4xl md:text-5xl mb-6">Where to Find Us</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              Luminary Resorts @ Hilltop is located in Point Blank, Texas—a hidden gem in the Sam Houston National
+              Luminary Resorts at Hilltop is located in Coldspring, Texas—a hidden gem in the Sam Houston National
               Forest region, offering the perfect balance of seclusion and accessibility.
             </p>
           </div>
 
-          {/* Map Placeholder */}
+          {/* Google Map Embed */}
           <div className="aspect-video rounded-lg overflow-hidden mb-12 border-2 border-border">
-            <img
-              src="/placeholder.svg?height=600&width=1200"
-              alt="Location map"
-              className="w-full h-full object-cover"
+            <iframe
+              src="https://www.google.com/maps?q=50+Snowhill+Rd,+Coldspring+TX+77331&output=embed"
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              className="w-full h-full"
+              title="Luminary Resorts Location - 50 Snowhill Rd, Coldspring TX, 77331"
             />
           </div>
 
-          <div className="text-center">
-            <Button size="lg" className="rounded-full">
-              <MapPin className="w-5 h-5 mr-2" />
-              Get Directions
+          <div className="text-center mb-8">
+            <p className="text-lg font-medium mb-4">50 Snowhill Rd, Coldspring TX, 77331</p>
+            <Button 
+              size="lg" 
+              className="rounded-full"
+              asChild
+            >
+              <a
+                href="https://www.google.com/maps/dir/?api=1&destination=50+Snowhill+Rd,+Coldspring+TX+77331"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <MapPin className="w-5 h-5 mr-2" />
+                Get Directions
+              </a>
             </Button>
           </div>
         </div>
@@ -116,9 +133,8 @@ export default function LocationPage() {
             <Card className="bg-primary text-primary-foreground">
               <CardContent className="p-8 text-center">
                 <h3 className="font-serif text-2xl mb-4">Resort Address</h3>
-                <p className="text-lg mb-2">Luminary Resorts @ Hilltop</p>
-                <p className="opacity-90">Point Blank, Texas 77364</p>
-                <p className="text-sm opacity-75 mt-4">Exact address provided upon booking confirmation</p>
+                <p className="text-lg mb-2">Luminary Resorts at Hilltop</p>
+                <p className="opacity-90">50 Snowhill Rd, Coldspring TX, 77331</p>
               </CardContent>
             </Card>
           </div>
@@ -135,14 +151,14 @@ export default function LocationPage() {
               <Card>
                 <div className="aspect-square overflow-hidden">
                   <img
-                    src="/placeholder.svg?height=400&width=400"
+                    src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=800&fit=crop"
                     alt="Lake Livingston"
                     className="w-full h-full object-cover"
                   />
                 </div>
                 <CardContent className="p-6">
                   <h3 className="font-serif text-xl mb-2">Lake Livingston</h3>
-                  <p className="text-sm text-muted-foreground mb-3">15 minutes away</p>
+                  <p className="text-sm text-muted-foreground mb-3">5 minutes away</p>
                   <p className="text-muted-foreground">
                     Texas's second-largest lake, perfect for peaceful morning walks and sunset views.
                   </p>
@@ -152,7 +168,7 @@ export default function LocationPage() {
               <Card>
                 <div className="aspect-square overflow-hidden">
                   <img
-                    src="/placeholder.svg?height=400&width=400"
+                    src="https://images.unsplash.com/photo-1448375240586-882707db888b?w=800&h=800&fit=crop"
                     alt="Sam Houston National Forest"
                     className="w-full h-full object-cover"
                   />
@@ -169,16 +185,16 @@ export default function LocationPage() {
               <Card>
                 <div className="aspect-square overflow-hidden">
                   <img
-                    src="/placeholder.svg?height=400&width=400"
-                    alt="Nature Trails"
+                    src="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&h=800&fit=crop"
+                    alt="Wolf Creek Park"
                     className="w-full h-full object-cover"
                   />
                 </div>
                 <CardContent className="p-6">
-                  <h3 className="font-serif text-xl mb-2">Hiking Trails</h3>
-                  <p className="text-sm text-muted-foreground mb-3">On property</p>
+                  <h3 className="font-serif text-xl mb-2">Wolf Creek Park</h3>
+                  <p className="text-sm text-muted-foreground mb-3">10 minutes away</p>
                   <p className="text-muted-foreground">
-                    Private trails wind through our hilltop property, perfect for forest bathing.
+                    A beautiful park with scenic trails, perfect for hiking and nature exploration.
                   </p>
                 </CardContent>
               </Card>
@@ -232,8 +248,9 @@ export default function LocationPage() {
                   <div>
                     <h3 className="font-serif text-lg mb-2">Unplug & Unwind</h3>
                     <p className="text-muted-foreground">
-                      Cell service can be limited—we see this as a feature. Wi-Fi is available if needed, but we
-                      encourage disconnecting during your stay.
+                      Take time to disconnect and fully immerse yourself in the natural beauty and tranquility of your
+                      surroundings. Whether you choose to read, meditate, or simply be present, this is your space to
+                      unwind.
                     </p>
                   </div>
                 </CardContent>

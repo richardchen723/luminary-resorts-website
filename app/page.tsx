@@ -2,36 +2,20 @@ import Link from "next/link"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { BookingWidget } from "@/components/booking-widget"
+import { HomeHero } from "@/components/home-hero"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { getAllCabinsFromHostaway } from "@/lib/cabin-cache"
 
-export default function HomePage() {
-  const cabins = [
-    {
-      id: "01",
-      name: "Mirror Cabin",
-      image: "/modern-glass-cabin-with-floor-to-ceiling-windows-i.jpg",
-      highlights: ["Floor-to-ceiling windows", "Private deck", "King bed"],
-    },
-    {
-      id: "02",
-      name: "Forest Cabin",
-      image: "/luxury-cabin-surrounded-by-tall-pine-trees-with-wa.jpg",
-      highlights: ["Surrounded by tall pines", "Wood-burning fireplace", "Soaking tub"],
-    },
-    {
-      id: "03",
-      name: "Lakeside Cabin",
-      image: "/serene-cabin-overlooking-peaceful-lake-at-sunset-w.jpg",
-      highlights: ["Lake views", "Private dock", "Outdoor shower"],
-    },
-    {
-      id: "04",
-      name: "Hilltop Cabin",
-      image: "/elevated-cabin-with-panoramic-mountain-and-valley-.jpg",
-      highlights: ["Panoramic views", "Sunset terrace", "Outdoor fire pit"],
-    },
-  ]
+export default async function HomePage() {
+  // Fetch real cabin data from Hostaway (with static fallback)
+  const cabins = await getAllCabinsFromHostaway()
+
+  // Define specific cover images for each cabin
+  const coverImages: Record<string, string> = {
+    dew: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-2VoxPw1ogFm--GFueKZyM--b9BvwcrnFQxchXfq28rNto-69641991b0aab", // DEW - Image 24
+    moss: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472338-hladcgjUFApjH7XWC1hAtZmwJUwSp8aaE-XuD2Q--HYw-69641964c3246", // MOSS - Image 2
+    mist: "https://a0.muscache.com/im/pictures/hosting/Hosting-1584455699787140211/original/3f00cc25-b6c9-43ea-a6f6-4f73bbee81f7.jpeg?aki_policy=xx_large", // MIST - Image 3
+  }
 
   return (
     <div className="min-h-screen">
@@ -39,67 +23,11 @@ export default function HomePage() {
 
       {/* Announcement Bar */}
       <div className="bg-primary text-primary-foreground py-2 text-center text-sm mt-20">
-        <p>Now accepting reservations • Limited 4 cabins per night</p>
+        <p>Now accepting reservations • Call (404) 590-8346</p>
       </div>
 
       {/* Hero Section */}
-      <section className="relative h-screen flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0">
-          <img
-            src="/images/image.png"
-            alt="Luminary Resorts at Hilltop - Modern glass cabin in misty forest"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 atmospheric-overlay" />
-        </div>
-
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto text-white">
-          <div className="mb-8">
-            <h1 className="text-5xl md:text-7xl tracking-[0.2em] mb-3 text-balance animate-fade-in-up font-light">
-              LUMINARY
-            </h1>
-            <p className="text-xl md:text-2xl tracking-[0.3em] opacity-90 animate-fade-in-up font-light">RESORTS</p>
-          </div>
-
-          <p className="text-lg md:text-xl mb-6 text-balance leading-relaxed opacity-95 font-normal italic">
-            Where silence reflects love
-          </p>
-
-          <p className="text-base md:text-lg mb-8 text-balance leading-relaxed opacity-85 font-light max-w-2xl mx-auto">
-            A mirror-house retreat nestled in nature,
-            <br />
-            offering couples private, healing, and ritual-rich escapes.
-          </p>
-          <p className="text-sm md:text-base opacity-80 mb-12 font-light tracking-wide">
-            Mirror Cabins • Forest • Lakeside • Natural Healing
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              asChild
-              size="lg"
-              className="rounded-full text-lg px-8 bg-white/10 backdrop-blur-sm hover:bg-white/20 border border-white/30"
-            >
-              <Link href="#booking">Book Now</Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="rounded-full text-lg px-8 bg-transparent border-white/50 hover:bg-white/10"
-            >
-              <Link href="/stay/moss">Explore the Retreat</Link>
-            </Button>
-          </div>
-        </div>
-
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-          <div className="w-6 h-10 border-2 border-white/50 rounded-full flex justify-center pt-2">
-            <div className="w-1 h-2 bg-white/50 rounded-full" />
-          </div>
-        </div>
-      </section>
+      <HomeHero />
 
       {/* Booking Widget Section */}
       <section id="booking" className="py-16 bg-card">
@@ -127,37 +55,38 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
-            {cabins.map((cabin) => (
-              <Card
-                key={cabin.id}
-                className="overflow-hidden group cursor-pointer hover:shadow-xl transition-shadow bg-background border-border/50"
-              >
-                <div className="relative h-80 overflow-hidden">
-                  <img
-                    src={cabin.image || "/placeholder.svg"}
-                    alt={cabin.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                  <div className="absolute top-4 right-4 bg-background/80 backdrop-blur-sm px-4 py-2 rounded-full">
-                    <span className="text-sm">Cabin {cabin.id}</span>
+            {cabins.map((cabin) => {
+              // Use specific cover image if defined, otherwise use first image from cabin
+              const coverImage = coverImages[cabin.slug] || cabin.images?.[0] || "/placeholder.svg"
+              return (
+                <Link
+                  key={cabin.slug}
+                  href={`/stay/${cabin.slug}`}
+                  className="group block"
+                >
+                  <div className="relative aspect-square overflow-hidden rounded-xl bg-background border border-border/50 shadow-sm hover:shadow-xl transition-all duration-500">
+                    {/* Image */}
+                    <div className="absolute inset-0">
+                      <img
+                        src={coverImage}
+                        alt={cabin.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                      />
+                      {/* Gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-foreground/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
+                    </div>
+                    
+                    {/* Cabin name overlay */}
+                    <div className="absolute bottom-0 left-0 right-0 p-8 md:p-10">
+                      <h3 className="font-serif text-3xl md:text-4xl text-white font-light tracking-wide mb-2">
+                        {cabin.name}
+                      </h3>
+                      <div className="w-12 h-px bg-white/60 group-hover:w-16 transition-all duration-500" />
+                    </div>
                   </div>
-                </div>
-                <CardContent className="p-6">
-                  <h3 className="text-2xl mb-4 font-medium">{cabin.name}</h3>
-                  <ul className="space-y-2 mb-6">
-                    {cabin.highlights.map((highlight, idx) => (
-                      <li key={idx} className="text-foreground/60 flex items-center gap-2">
-                        <div className="w-1 h-1 rounded-full bg-primary" />
-                        {highlight}
-                      </li>
-                    ))}
-                  </ul>
-                  <Button asChild variant="outline" className="w-full rounded-full bg-transparent border-border/50">
-                    <Link href="/stay/moss">View Cabin</Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                </Link>
+              )
+            })}
           </div>
         </div>
       </section>
