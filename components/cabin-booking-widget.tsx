@@ -1,0 +1,886 @@
+"use client"
+
+import type React from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Calendar as CalendarIcon, Users, Loader2, DollarSign, AlertCircle, X, XCircle } from "lucide-react"
+import { getListingIdBySlug } from "@/lib/listing-map"
+import { Calendar, CalendarDayButton } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { format, isSameDay, addMonths, startOfMonth, endOfMonth } from "date-fns"
+import type { DateRange } from "react-day-picker"
+import type { HostawayCalendarEntry } from "@/types/hostaway"
+import { calculateCalendarStatus, buildNextCheckInMap } from "@/lib/calendar-status"
+import { cn } from "@/lib/utils"
+import { DayButton } from "react-day-picker"
+
+interface CabinBookingWidgetProps {
+  cabinSlug: string
+  className?: string
+}
+
+export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWidgetProps) {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  
+  // Get listing ID from slug
+  const listingId = getListingIdBySlug(cabinSlug)
+  if (!listingId) {
+    return (
+      <Card className={`p-6 ${className}`}>
+        <div className="text-destructive">Invalid cabin</div>
+      </Card>
+    )
+  }
+  
+  // Get initial values from URL params if available
+  const initialCheckIn = searchParams.get("checkIn") || ""
+  const initialCheckOut = searchParams.get("checkOut") || ""
+  const initialGuests = searchParams.get("guests") || "2"
+
+  const [checkIn, setCheckIn] = useState(initialCheckIn)
+  const [checkOut, setCheckOut] = useState(initialCheckOut)
+  const [guests, setGuests] = useState(initialGuests)
+  const [isSelectingNewRange, setIsSelectingNewRange] = useState(false) // Track if we're starting a fresh selection
+  const [previousSelection, setPreviousSelection] = useState<{checkIn: string, checkOut: string} | null>(null) // Track previous complete selection
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false) // Control calendar popover visibility
+  
+  // Update previousSelection when we have a complete selection
+  useEffect(() => {
+    if (checkIn && checkOut && !isSelectingNewRange) {
+      setPreviousSelection({checkIn, checkOut})
+    } else if (!checkIn || !checkOut) {
+      setPreviousSelection(null)
+    }
+  }, [checkIn, checkOut, isSelectingNewRange])
+  
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false)
+  const [isLoadingPricing, setIsLoadingPricing] = useState(false)
+  const [pricing, setPricing] = useState<{
+    nightlyRate: number
+    nights: number
+    subtotal: number
+    cleaningFee: number
+    tax: number
+    channelFee: number
+    total: number
+    currency: string
+    available: boolean
+  } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [calendarData, setCalendarData] = useState<Record<string, HostawayCalendarEntry>>({})
+  const [isLoadingCalendar, setIsLoadingCalendar] = useState(false)
+
+  // Fetch calendar data for availability
+  useEffect(() => {
+    async function fetchCalendar() {
+      setIsLoadingCalendar(true)
+      try {
+        const response = await fetch(`/api/calendar/${listingId}`)
+        if (response.ok) {
+          const data = await response.json()
+          setCalendarData(data.calendar || {})
+        }
+      } catch (err) {
+        console.error("Error fetching calendar:", err)
+      } finally {
+        setIsLoadingCalendar(false)
+      }
+    }
+    fetchCalendar()
+  }, [listingId])
+
+  // Load pricing when dates change
+  useEffect(() => {
+    if (checkIn && checkOut && checkIn < checkOut) {
+      loadPricing()
+    } else {
+      setPricing(null)
+    }
+  }, [checkIn, checkOut, guests, listingId])
+
+  const loadPricing = async () => {
+    if (!listingId) {
+      setError("Invalid cabin")
+      return
+    }
+
+    setIsLoadingPricing(true)
+    setError(null)
+
+    try {
+      // Calculate number of nights
+      const start = new Date(checkIn)
+      const end = new Date(checkOut)
+      const nights = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+
+      // Call pricing API directly
+      const requestBody = {
+        listingId,
+        startDate: checkIn,
+        endDate: checkOut,
+        guests: parseInt(guests, 10),
+      }
+      const response = await fetch("/api/pricing", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      if (!response.ok) {
+        // If pricing API fails, get listing data to use base price
+        try {
+          const listingResponse = await fetch(`/api/listing/${listingId}`)
+          
+          if (listingResponse.ok) {
+            const listingData = await listingResponse.json()
+            const basePrice = listingData.basePrice || 200
+            const currency = listingData.currency || "USD"
+            
+            // Check availability first
+            const availabilityResponse = await fetch("/api/availability", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                slug: cabinSlug,
+                startDate: checkIn,
+                endDate: checkOut,
+                guests: parseInt(guests, 10),
+              }),
+            })
+
+            if (availabilityResponse.ok) {
+              const data = await availabilityResponse.json()
+              const cabin = data.cabins?.[0]
+
+              if (cabin && cabin.available) {
+                // Calculate pricing using base price
+                const subtotal = basePrice * nights
+                const cleaningFee = 100
+                const tax = Math.round(subtotal * 0.12) // ~12% tax
+                const channelFee = Math.round(subtotal * 0.02) // ~2% channel fee
+                const total = subtotal + cleaningFee + tax + channelFee
+
+                setPricing({
+                  nightlyRate: basePrice,
+                  nights,
+                  subtotal,
+                  cleaningFee,
+                  tax,
+                  channelFee,
+                  total,
+                  currency,
+                  available: true,
+                })
+                return
+              }
+            }
+          }
+
+          throw new Error("Failed to load pricing")
+        } catch (fallbackError: any) {
+          console.error("Fallback pricing failed:", fallbackError)
+          throw new Error("Failed to load pricing")
+        }
+      }
+
+      const pricingData = await response.json()
+      
+      // If API returns available:false without breakdown, use fallback pricing
+      if (!pricingData.available && !pricingData.breakdown) {
+        try {
+          const listingResponse = await fetch(`/api/listing/${listingId}`)
+          
+          if (listingResponse.ok) {
+            const listingData = await listingResponse.json()
+            const basePrice = listingData.basePrice || 200
+            const currency = listingData.currency || "USD"
+            
+            // Check availability
+            const availabilityResponse = await fetch("/api/availability", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                slug: cabinSlug,
+                startDate: checkIn,
+                endDate: checkOut,
+                guests: parseInt(guests, 10),
+              }),
+            })
+
+            if (availabilityResponse.ok) {
+              const data = await availabilityResponse.json()
+              const cabin = data.cabins?.[0]
+
+              if (cabin && cabin.available) {
+                // Calculate pricing using base price
+                const subtotal = basePrice * nights
+                const cleaningFee = 100
+                const tax = Math.round(subtotal * 0.12)
+                const channelFee = Math.round(subtotal * 0.02)
+                const total = subtotal + cleaningFee + tax + channelFee
+
+                setPricing({
+                  nightlyRate: basePrice,
+                  nights,
+                  subtotal,
+                  cleaningFee,
+                  tax,
+                  channelFee,
+                  total,
+                  currency,
+                  available: true,
+                })
+                return
+              }
+            }
+          }
+        } catch (fallbackError: any) {
+          console.error("Fallback pricing failed:", fallbackError)
+        }
+        // If fallback didn't set pricing, use hardcoded base price as last resort
+        const basePrice = 200
+        const subtotal = basePrice * nights
+        const cleaningFee = 100
+        const tax = Math.round(subtotal * 0.12)
+        const channelFee = Math.round(subtotal * 0.02)
+        const total = subtotal + cleaningFee + tax + channelFee
+        setPricing({
+          nightlyRate: basePrice,
+          nights,
+          subtotal,
+          cleaningFee,
+          tax,
+          channelFee,
+          total,
+          currency: "USD",
+          available: true,
+        })
+        return
+      }
+      
+      if (pricingData.available && pricingData.breakdown) {
+        const breakdown = pricingData.breakdown
+        // Use fees and taxes from API if provided, otherwise calculate
+        const cleaningFee = breakdown.fees || 100
+        const tax = breakdown.taxes || Math.round(breakdown.subtotal * 0.12)
+        const channelFee = Math.round(breakdown.subtotal * 0.02)
+        
+        // If API provides total, use it; otherwise calculate
+        const calculatedTotal = breakdown.subtotal + cleaningFee + tax + channelFee
+        const total = breakdown.total || calculatedTotal
+
+        setPricing({
+          nightlyRate: breakdown.nightlyRate || (breakdown.nights > 0 ? breakdown.subtotal / breakdown.nights : 0),
+          nights: breakdown.nights || nights,
+          subtotal: breakdown.subtotal,
+          cleaningFee,
+          tax,
+          channelFee,
+          total,
+          currency: breakdown.currency || "USD",
+          available: true,
+        })
+      } else if (pricingData.available) {
+        // API says available but no breakdown - use fallback calculation
+        // This shouldn't happen, but handle gracefully
+        const basePrice = 200 // Fallback
+        const subtotal = basePrice * nights
+        const cleaningFee = 100
+        const tax = Math.round(subtotal * 0.12)
+        const channelFee = Math.round(subtotal * 0.02)
+        const total = subtotal + cleaningFee + tax + channelFee
+
+        setPricing({
+          nightlyRate: basePrice,
+          nights,
+          subtotal,
+          cleaningFee,
+          tax,
+          channelFee,
+          total,
+          currency: "USD",
+          available: true,
+        })
+      } else {
+        // available: false - use hardcoded base price as last resort
+        const basePrice = 200
+        const subtotal = basePrice * nights
+        const cleaningFee = 100
+        const tax = Math.round(subtotal * 0.12)
+        const channelFee = Math.round(subtotal * 0.02)
+        const total = subtotal + cleaningFee + tax + channelFee
+        setPricing({
+          nightlyRate: basePrice,
+          nights,
+          subtotal,
+          cleaningFee,
+          tax,
+          channelFee,
+          total,
+          currency: "USD",
+          available: true,
+        })
+      }
+    } catch (err: any) {
+      console.error("Error loading pricing:", err)
+      setError(err.message || "Failed to load pricing")
+      setPricing(null)
+    } finally {
+      setIsLoadingPricing(false)
+    }
+  }
+
+  const handleBookNow = () => {
+    if (!checkIn || !checkOut) {
+      setError("Please select check-in and check-out dates")
+      return
+    }
+
+    if (!pricing || !pricing.available || pricing.total === 0) {
+      setError("This cabin is not available for the selected dates")
+      return
+    }
+
+    // Navigate to booking page with pre-filled data
+    router.push(
+      `/booking/${cabinSlug}?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`
+    )
+  }
+
+  const handleCheckAvailability = async () => {
+    if (!checkIn || !checkOut) {
+      setError("Please select check-in and check-out dates")
+      return
+    }
+
+    setIsCheckingAvailability(true)
+    setError(null)
+
+    try {
+      const response = await fetch("/api/availability", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          slug: cabinSlug,
+          startDate: checkIn,
+          endDate: checkOut,
+          guests: parseInt(guests, 10),
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to check availability")
+      }
+
+      const data = await response.json()
+      const cabin = data.cabins?.[0]
+
+      if (cabin && cabin.available) {
+        // Load pricing after confirming availability
+        await loadPricing()
+      } else {
+        setError("This cabin is not available for the selected dates")
+        setPricing(null)
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to check availability")
+    } finally {
+      setIsCheckingAvailability(false)
+    }
+  }
+
+  // Pre-compute next check-in map once (O(n) operation, done once per calendarData change)
+  const nextCheckInMap = useMemo(() => {
+    if (Object.keys(calendarData).length === 0) return {}
+    return buildNextCheckInMap(calendarData)
+  }, [calendarData])
+
+  // Memoize status calculations for visible dates only
+  const dateStatuses = useMemo(() => {
+    const statuses: Record<string, ReturnType<typeof calculateCalendarStatus>> = {}
+    // When checkOut is set, we're in "new check-in selection" mode
+    // So calculate statuses as if no check-in is selected (checkout-only dates should be blocked)
+    const checkInDate = (checkIn && !checkOut) ? new Date(checkIn + 'T00:00:00') : null
+    
+    // Calculate visible date range: 2 months before today to 4 months ahead (covers 2-month calendar view)
+    const today = new Date()
+    const visibleStart = startOfMonth(addMonths(today, -1))
+    let visibleEnd = endOfMonth(addMonths(today, 3)) // 4 months ahead (0-indexed)
+    
+    // If check-in is selected, extend range to next check-in date + buffer (30 days)
+    if (checkInDate) {
+      // Find next check-in date after selected check-in
+      let nextCheckIn: Date | null = null
+      const checkInDateStr = format(checkInDate, "yyyy-MM-dd")
+      
+      // Use pre-computed map if available
+      if (nextCheckInMap[checkInDateStr]) {
+        nextCheckIn = nextCheckInMap[checkInDateStr]
+      } else {
+        // Fallback: search for next check-in
+        for (const dateStr of Object.keys(calendarData)) {
+          try {
+            const date = new Date(dateStr + 'T00:00:00')
+            if (date > checkInDate) {
+              const entry = calendarData[dateStr]
+              const hasCheckIn = entry?.reservations?.some(
+                (res) => res.arrivalDate === dateStr
+              )
+              if (hasCheckIn) {
+                if (!nextCheckIn || date < nextCheckIn) {
+                  nextCheckIn = date
+                }
+              }
+            }
+          } catch (e) {
+            // Skip invalid dates
+          }
+        }
+      }
+      
+      // Extend calculation range to next check-in + 30 day buffer
+      if (nextCheckIn) {
+        const bufferDate = new Date(nextCheckIn)
+        bufferDate.setDate(bufferDate.getDate() + 30)
+        if (bufferDate > visibleEnd) {
+          visibleEnd = bufferDate
+        }
+      }
+    }
+    
+    // Calculate status only for dates in visible range
+    for (const dateStr of Object.keys(calendarData)) {
+      try {
+        const date = new Date(dateStr + 'T00:00:00')
+        // Skip dates outside visible range
+        if (date < visibleStart || date > visibleEnd) {
+          continue
+        }
+        statuses[dateStr] = calculateCalendarStatus(date, calendarData, checkInDate, nextCheckInMap)
+      } catch (e) {
+        // Skip invalid dates
+      }
+    }
+    
+    return statuses
+  }, [calendarData, checkIn, checkOut, nextCheckInMap])
+
+  // Custom DayButton component with three-state rendering
+  // Extends the default CalendarDayButton with status-based styling
+  const CustomDayButton = useCallback((props: React.ComponentProps<typeof DayButton>) => {
+    const { day, modifiers, className, ...restProps } = props
+    
+    // Extract the actual date from day object (react-day-picker uses day.date)
+    const date = (day as any)?.date || day
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+      // Fallback to default button if date is invalid
+      return <CalendarDayButton {...props} />
+    }
+    
+    const dateStr = format(date, "yyyy-MM-dd")
+    let dateInfo = dateStatuses[dateStr]
+    
+    // If not in cache (outside visible range), calculate on-demand
+    if (!dateInfo) {
+      const checkInDate = (checkIn && !checkOut) ? new Date(checkIn + 'T00:00:00') : null
+      dateInfo = calculateCalendarStatus(date, calendarData, checkInDate, nextCheckInMap)
+    }
+
+    // Determine additional styling based on status
+    // Use data attributes for CSS targeting instead of complex overlays
+    const statusClassNames = {
+      "solid-block": "bg-muted/50 text-muted-foreground opacity-50",
+      "checkout-only": checkIn 
+        ? "opacity-75" 
+        : "bg-muted/30 text-muted-foreground opacity-50",
+      "open": "",
+    }
+    
+    const statusClassName = dateInfo?.status ? statusClassNames[dateInfo.status] : ""
+
+    return (
+      <CalendarDayButton
+        {...restProps}
+        day={day}
+        modifiers={modifiers}
+        className={cn(
+          statusClassName,
+          // Add data attributes for potential CSS styling
+          dateInfo?.status === "solid-block" && "data-solid-block",
+          dateInfo?.status === "checkout-only" && "data-checkout-only",
+          dateInfo?.status === "open" && "data-open",
+          className
+        )}
+        data-status={dateInfo?.status || "open"}
+      />
+    )
+  }, [dateStatuses, checkIn, checkOut, calendarData, nextCheckInMap])
+
+  // Set minimum date to today
+  const today = new Date().toISOString().split("T")[0]
+
+  return (
+    <Card className={`p-6 ${className}`}>
+      <h3 className="text-2xl font-semibold mb-6">Book Your Stay</h3>
+
+      <div className="space-y-5">
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Select Dates
+          </label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-left font-normal"
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {checkIn && checkOut ? (
+                  <>
+                    {format(new Date(checkIn), "MMM d")} - {format(new Date(checkOut), "MMM d, yyyy")}
+                  </>
+                ) : (
+                  "Select dates"
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start" side="bottom">
+              <Calendar
+                mode="range"
+                selected={
+                  checkIn && checkOut
+                    ? {
+                        from: checkIn ? new Date(checkIn + 'T00:00:00') : undefined,
+                        to: checkOut ? new Date(checkOut + 'T00:00:00') : undefined,
+                      }
+                    : checkIn
+                    ? {
+                        from: new Date(checkIn + 'T00:00:00'),
+                      }
+                    : undefined
+                }
+                onSelect={(range) => {
+                  if (!range?.from) {
+                    // Selection cleared
+                    setCheckIn("")
+                    setCheckOut("")
+                    setIsSelectingNewRange(false)
+                    return
+                  }
+                  
+                  // Check if this is a single-date click (same date for from and to, or no to)
+                  const isSingleDateClick = !range.to || (
+                    range.from.getFullYear() === range.to.getFullYear() &&
+                    range.from.getMonth() === range.to.getMonth() &&
+                    range.from.getDate() === range.to.getDate()
+                  )
+                  
+                  // CRITICAL: If we have a complete selection (both checkIn and checkOut set),
+                  // and user clicks ANY new date, completely clear and start fresh
+                  if (checkIn && checkOut && !isSelectingNewRange && previousSelection) {
+                    // When react-day-picker has a range selected and you click a new date,
+                    // it modifies the range. We need to detect which date was actually clicked.
+                    // Compare the new range with the previous selection to determine the clicked date.
+                    const fromYear = range.from.getFullYear()
+                    const fromMonth = String(range.from.getMonth() + 1).padStart(2, '0')
+                    const fromDay = String(range.from.getDate()).padStart(2, '0')
+                    const newFromStr = `${fromYear}-${fromMonth}-${fromDay}`
+                    
+                    const toYear = range.to?.getFullYear()
+                    const toMonth = range.to ? String(range.to.getMonth() + 1).padStart(2, '0') : ''
+                    const toDay = range.to ? String(range.to.getDate()).padStart(2, '0') : ''
+                    const newToStr = range.to ? `${toYear}-${toMonth}-${toDay}` : ''
+                    
+                    // Determine which date was clicked by comparing with previous selection
+                    let clickedDateStr: string
+                    if (newFromStr !== previousSelection.checkIn) {
+                      // range.from changed - user clicked before the old check-in
+                      clickedDateStr = newFromStr
+                    } else if (newToStr && newToStr !== previousSelection.checkOut) {
+                      // range.to changed - user clicked after the old check-out
+                      clickedDateStr = newToStr
+                    } else {
+                      // Fallback: use range.from (shouldn't happen, but just in case)
+                      clickedDateStr = newFromStr
+                    }
+                    
+                    // ALWAYS clear the old selection completely and start fresh with ONLY the clicked date as checkIn
+                    // Don't set checkOut even if range.to exists - let the user click again to set checkOut
+                    setCheckOut("")
+                    setCheckIn(clickedDateStr)
+                    setIsSelectingNewRange(true) // Mark that we're in a new selection
+                    // Keep calendar open so user can select check-out date
+                    return
+                  }
+                  
+                  // Convert range dates to local date strings for normal flow
+                  const fromYear = range.from.getFullYear()
+                  const fromMonth = String(range.from.getMonth() + 1).padStart(2, '0')
+                  const fromDay = String(range.from.getDate()).padStart(2, '0')
+                  const newCheckInStr = `${fromYear}-${fromMonth}-${fromDay}`
+                  
+                  // Normal selection flow (no complete selection exists, or we're in the middle of selecting)
+                  if (isSingleDateClick) {
+                    // User clicked a single date (start of new selection or extending current)
+                    setCheckIn(newCheckInStr)
+                    if (!checkIn || isSelectingNewRange) {
+                      // Starting fresh or continuing new selection - clear checkOut
+                      setCheckOut("")
+                    }
+                    setIsSelectingNewRange(true)
+                  } else if (range.to) {
+                    // Complete range selected
+                    const toYear = range.to.getFullYear()
+                    const toMonth = String(range.to.getMonth() + 1).padStart(2, '0')
+                    const toDay = String(range.to.getDate()).padStart(2, '0')
+                    const newCheckOutStr = `${toYear}-${toMonth}-${toDay}`
+                    setCheckIn(newCheckInStr)
+                    setCheckOut(newCheckOutStr)
+                    setIsSelectingNewRange(false) // Selection complete
+                    setIsCalendarOpen(false) // Close the calendar popover
+                  }
+                }}
+                disabled={(date) => {
+                  const today = new Date(new Date().setHours(0, 0, 0, 0))
+                  if (date < today) return true
+                  
+                  // If check-in is selected, block all dates before it
+                  if (checkIn) {
+                    const checkInDateObj = new Date(checkIn + 'T00:00:00')
+                    if (date < checkInDateObj) {
+                      return true
+                    }
+                    
+                    // Block all dates beyond the next check-in date
+                    // When check-in is selected, checkout must be before next guest checks in
+                    if (!checkOut) {
+                      const checkInDateStr = format(checkInDateObj, "yyyy-MM-dd")
+                      const nextCheckIn = nextCheckInMap[checkInDateStr]
+                      
+                      if (nextCheckIn) {
+                        // Block dates after the next check-in date
+                        // The next check-in date itself may be available as checkout (checkout-only)
+                        if (date > nextCheckIn) {
+                          return true
+                        }
+                      }
+                    }
+                  }
+                  
+                  // Use cached dateStatuses instead of recalculating
+                  const dateStr = format(date, "yyyy-MM-dd")
+                  let dateInfo = dateStatuses[dateStr]
+                  
+                  // If not in cache (outside visible range), calculate on-demand
+                  if (!dateInfo) {
+                    const checkInDate = (checkIn && !checkOut) ? new Date(checkIn + 'T00:00:00') : null
+                    dateInfo = calculateCalendarStatus(date, calendarData, checkInDate, nextCheckInMap)
+                  }
+                  
+                  // Solid block is always disabled
+                  if (dateInfo.status === "solid-block") {
+                    return true
+                  }
+                  
+                  // Checkout-only is disabled for check-in selection
+                  // But enabled if we're selecting checkout and have a check-in (but not checkOut)
+                  if (dateInfo.status === "checkout-only") {
+                    // If both checkIn and checkOut are set, we're selecting a new check-in
+                    // So checkout-only dates should be blocked
+                    if (checkIn && checkOut) {
+                      return true
+                    }
+                    // If we have a check-in but no checkOut, allow this date as checkout
+                    if (checkIn) {
+                      const checkInDateObj = new Date(checkIn + 'T00:00:00')
+                      // Only allow if date is after check-in
+                      return date <= checkInDateObj
+                    }
+                    // No check-in selected, disable for check-in selection
+                    return true
+                  }
+                  
+                  // Open dates are always enabled
+                  return false
+                }}
+                numberOfMonths={2}
+                initialFocus
+              />
+              {(checkIn || checkOut) && (
+                <div className="border-t p-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setCheckIn("")
+                      setCheckOut("")
+                      setIsSelectingNewRange(false)
+                      setPreviousSelection(null)
+                      setPricing(null)
+                      setError(null)
+                    }}
+                    className="w-full text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <XCircle className="h-3 w-3 mr-1" />
+                    Clear dates
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4">
+
+          <div>
+            <label htmlFor="cabin-guests" className="block text-sm font-medium mb-2">
+              Guests
+            </label>
+            <select
+              id="cabin-guests"
+              value={guests}
+              onChange={(e) => setGuests(e.target.value)}
+              className="w-full px-4 py-3.5 rounded-md border border-input bg-background focus:ring-2 focus:ring-ring focus:outline-none text-base"
+            >
+              <option value="1">1 Guest</option>
+              <option value="2">2 Guests</option>
+            </select>
+          </div>
+        </div>
+
+        {pricing && pricing.nightlyRate > 0 && (
+          <div className="p-5 bg-muted/50 rounded-lg border border-border space-y-4">
+            {/* Nightly Rate */}
+            <div className="pb-3 border-b border-border">
+              <div className="text-3xl font-bold text-primary">
+                {pricing.currency === "USD" ? "$" : pricing.currency}
+                {pricing.nightlyRate.toLocaleString()} <span className="text-lg font-normal text-foreground">/ Night</span>
+              </div>
+            </div>
+
+            {/* Price Breakdown */}
+            {pricing.available && pricing.nights > 0 && pricing.total > 0 && (
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    {pricing.currency === "USD" ? "$" : pricing.currency}
+                    {pricing.nightlyRate.toLocaleString()} × {pricing.nights} {pricing.nights === 1 ? "night" : "nights"}
+                  </span>
+                  <span className="font-medium">
+                    {pricing.currency === "USD" ? "$" : pricing.currency}
+                    {pricing.subtotal.toLocaleString()}
+                  </span>
+                </div>
+
+                {pricing.cleaningFee > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Cleaning Fee</span>
+                    <span className="font-medium">
+                      {pricing.currency === "USD" ? "$" : pricing.currency}
+                      {pricing.cleaningFee.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
+                {pricing.tax > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Lodging Tax</span>
+                    <span className="font-medium">
+                      {pricing.currency === "USD" ? "$" : pricing.currency}
+                      {pricing.tax.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
+                {pricing.channelFee > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Guest Channel Fee</span>
+                    <span className="font-medium">
+                      {pricing.currency === "USD" ? "$" : pricing.currency}
+                      {pricing.channelFee.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
+                <div className="pt-3 border-t border-border">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold">Total</span>
+                    <span className="text-2xl font-bold text-primary">
+                      {pricing.currency === "USD" ? "$" : pricing.currency}
+                      {pricing.total.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!pricing.available && (
+              <div className="text-sm font-medium text-destructive text-center py-2">
+                Not Available
+              </div>
+            )}
+          </div>
+        )}
+
+        {isLoadingPricing && (
+          <div className="flex items-center justify-center p-4">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            <span className="ml-2 text-sm text-muted-foreground">Loading pricing...</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="flex items-center gap-2 p-4 bg-destructive/10 text-destructive rounded-lg text-sm">
+            <AlertCircle className="w-4 h-4" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 pt-2">
+          {!pricing && (
+            <Button
+              type="button"
+              onClick={handleCheckAvailability}
+              disabled={isCheckingAvailability || !checkIn || !checkOut}
+              size="lg"
+              className="w-full rounded-full"
+              variant="outline"
+            >
+              {isCheckingAvailability ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Checking...
+                </>
+              ) : (
+                "Check Availability"
+              )}
+            </Button>
+          )}
+
+          <Button
+            type="button"
+            onClick={handleBookNow}
+            disabled={!pricing?.available || isLoadingPricing || !pricing || pricing.total === 0}
+            size="lg"
+            className="w-full rounded-full"
+          >
+            Book Now
+          </Button>
+        </div>
+      </div>
+    </Card>
+  )
+}
