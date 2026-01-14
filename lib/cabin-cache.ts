@@ -5,8 +5,8 @@ import { getListingIdBySlug, LISTING_ID_MAP } from "@/lib/listing-map"
 import type { Cabin } from "@/lib/cabins"
 import { cabins } from "@/lib/cabins"
 
-// Cache duration: 1 hour (3600 seconds)
-const CACHE_DURATION = 3600
+// Cache duration: 1 hour (3600 seconds) in production, false in development to disable caching
+const CACHE_DURATION = process.env.NODE_ENV === "development" ? false : 3600
 
 /**
  * Get cabin data from Hostaway API with caching

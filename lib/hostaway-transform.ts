@@ -80,12 +80,50 @@ export function transformHostawayListingToCabin(
     })
   }
 
-  const images = Array.isArray(listingImages)
-    ? listingImages
-        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
-        .map((img) => (img.url || img))
-        .filter((url) => url && typeof url === "string") // Filter out any empty URLs
-    : []
+  // Custom image ordering for Dew cabin
+  let images: string[] = []
+  if (slug === "dew") {
+    try {
+      // Define the specific image URLs for Dew cabin custom ordering
+      // DEW - Image 24 (banner), DEW - Image 35, DEW - Image 7, SOL - Image 4
+      const dewImage24 = "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-2VoxPw1ogFm--GFueKZyM--b9BvwcrnFQxchXfq28rNto-69641991b0aab"
+      const dewImage35 = "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-RgiUbt8Txv--3yyCogTkA4y5nluqen4Y03fPtSch7Ayw-69645da3094b3"
+      const dewImage7 = "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-y6ULFe7f8fPq60YeqcWAgHhLAOizvgCtVqa6asAjSs4-69665ddf86e16"
+      const solImage4 = "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-lrz7UCXf7uyhpqBczeJb0CxuS--AnPYjIyIOv4UOPn4o-69658b6abee09"
+      
+      // Get all images sorted by sortOrder
+      const allImages = Array.isArray(listingImages)
+        ? listingImages
+            .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+            .map((img) => (img.url || img))
+            .filter((url) => url && typeof url === "string")
+        : []
+      
+      // Create custom ordered array: banner first, then the 3 specified images, then rest
+      const customOrder: string[] = [dewImage24, dewImage35, dewImage7, solImage4]
+      
+      // Add the custom ordered images first, then add remaining images that aren't already included
+      const usedUrls = new Set(customOrder)
+      images = [...customOrder, ...allImages.filter(url => !usedUrls.has(url))]
+    } catch (error) {
+      console.error(`[${slug}] Error in custom image ordering:`, error)
+      // Fall back to default ordering if custom ordering fails
+      images = Array.isArray(listingImages)
+        ? listingImages
+            .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+            .map((img) => (img.url || img))
+            .filter((url) => url && typeof url === "string")
+        : []
+    }
+  } else {
+    // For other cabins, use default ordering
+    images = Array.isArray(listingImages)
+      ? listingImages
+          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+          .map((img) => (img.url || img))
+          .filter((url) => url && typeof url === "string") // Filter out any empty URLs
+      : []
+  }
   const amenities = Array.isArray(listingAmenities)
     ? listingAmenities
         .filter((la) => la.isPresent === 1 || la.isPresent === true)
