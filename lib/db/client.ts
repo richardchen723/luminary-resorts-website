@@ -20,9 +20,10 @@ export const db = sql
 
 /**
  * Check if database is available
+ * Vercel Postgres provides POSTGRES_URL, but we also support DATABASE_URL for flexibility
  */
 export function isDatabaseAvailable(): boolean {
-  return sql !== null && process.env.DATABASE_URL !== undefined
+  return sql !== null && (process.env.POSTGRES_URL !== undefined || process.env.DATABASE_URL !== undefined)
 }
 
 /**
@@ -30,7 +31,7 @@ export function isDatabaseAvailable(): boolean {
  */
 export async function query(text: string, params?: any[]) {
   if (!isDatabaseAvailable()) {
-    throw new Error('Database is not configured. Please set DATABASE_URL environment variable.')
+    throw new Error('Database is not configured. Please set POSTGRES_URL or DATABASE_URL environment variable.')
   }
   
   try {
@@ -47,7 +48,7 @@ export async function query(text: string, params?: any[]) {
  */
 export async function transaction<T>(callback: (client: typeof sql) => Promise<T>): Promise<T> {
   if (!isDatabaseAvailable()) {
-    throw new Error('Database is not configured. Please set DATABASE_URL environment variable.')
+    throw new Error('Database is not configured. Please set POSTGRES_URL or DATABASE_URL environment variable.')
   }
   
   // Note: @vercel/postgres doesn't support transactions directly
