@@ -282,11 +282,13 @@ export async function getCalendarAvailability(
     try {
       const result = await makeRequest<any>(`/listings/${listingId}/calendar?${params.toString()}`)
       
+      
       // If result is an array, convert it to object keyed by date
       if (Array.isArray(result)) {
         const calendarObj: HostawayCalendarResponse = {}
         for (const entry of result) {
           if (entry && entry.date) {
+            
             // Hostaway API returns isAvailable field, not available
             // Map isAvailable to available for our internal format
             const mappedEntry = {
@@ -298,6 +300,7 @@ export async function getCalendarAvailability(
         }
         return calendarObj
       }
+      
       
       return result
     } catch (error: any) {

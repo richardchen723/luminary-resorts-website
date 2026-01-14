@@ -22,8 +22,8 @@ export function AvailabilityResults({
   guests,
   onClose,
 }: AvailabilityResultsProps) {
+  // Only show available cabins
   const availableCabins = cabins.filter((cabin) => cabin.available)
-  const unavailableCabins = cabins.filter((cabin) => !cabin.available)
 
   if (availableCabins.length === 0) {
     return (
@@ -37,106 +37,72 @@ export function AvailabilityResults({
   }
 
   return (
-    <div className="mt-6 space-y-6">
-      <div>
-        <h3 className="text-xl font-semibold mb-4">
-          Available Cabins ({availableCabins.length})
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {availableCabins.map((cabin) => (
-            <Card key={cabin.slug} className="overflow-hidden hover:shadow-lg transition-shadow">
-              {cabin.image && (
-                <div className="aspect-video relative overflow-hidden">
-                  <Image
-                    src={cabin.image}
-                    alt={cabin.name}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                  />
-                </div>
-              )}
-              <div className="p-6">
-                <h4 className="text-xl font-semibold mb-3">{cabin.name}</h4>
-                <div className="space-y-2 mb-4">
-                  {cabin.price && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <DollarSign className="w-4 h-4" />
-                      <span className="text-lg font-semibold text-foreground">
-                        {cabin.currency || "$"}
-                        {cabin.price.toFixed(2)}
-                      </span>
-                      <span className="text-sm">for your stay</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="w-4 h-4" />
-                    <span>
-                      {new Date(checkIn).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}{" "}
-                      -{" "}
-                      {new Date(checkOut).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Users className="w-4 h-4" />
-                    <span>{guests} {guests === 1 ? "guest" : "guests"}</span>
-                  </div>
-                </div>
-                <Button
-                  asChild
-                  size="lg"
-                  className="w-full rounded-full"
-                  onClick={onClose}
-                >
-                  <Link
-                    href={`/stay/${cabin.slug}?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`}
-                  >
-                    Book Now
-                  </Link>
-                </Button>
+    <div className="mt-6">
+      <h3 className="text-xl font-semibold mb-4">
+        Available Cabins ({availableCabins.length})
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {availableCabins.map((cabin) => (
+          <Card key={cabin.slug} className="overflow-hidden hover:shadow-lg transition-shadow">
+            {cabin.image && (
+              <div className="aspect-video relative overflow-hidden">
+                <Image
+                  src={cabin.image}
+                  alt={cabin.name}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                />
               </div>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {unavailableCabins.length > 0 && (
-        <div>
-          <h3 className="text-lg font-medium mb-3 text-muted-foreground">
-            Unavailable ({unavailableCabins.length})
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {unavailableCabins.map((cabin) => (
-              <Card
-                key={cabin.slug}
-                className="opacity-60 overflow-hidden"
-              >
-                {cabin.image && (
-                  <div className="aspect-video relative overflow-hidden">
-                    <Image
-                      src={cabin.image}
-                      alt={cabin.name}
-                      fill
-                      className="object-cover grayscale"
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                    />
+            )}
+            <div className="px-6 pt-6 pb-4">
+              <h4 className="text-xl font-semibold mb-3">{cabin.name}</h4>
+              <div className="space-y-2 mb-4">
+                {cabin.price !== undefined && cabin.price !== null && cabin.price > 0 && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <DollarSign className="w-4 h-4" />
+                    <span className="text-lg font-semibold text-foreground">
+                      {cabin.currency || "$"}
+                      {cabin.price.toFixed(2)}
+                    </span>
+                    <span className="text-sm">for your stay</span>
                   </div>
                 )}
-                <div className="p-6">
-                  <h4 className="text-xl font-semibold mb-2">{cabin.name}</h4>
-                  <p className="text-sm text-muted-foreground">Not available for selected dates</p>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Calendar className="w-4 h-4" />
+                  <span>
+                    {new Date(checkIn).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}{" "}
+                    -{" "}
+                    {new Date(checkOut).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
                 </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Users className="w-4 h-4" />
+                  <span>{guests} {guests === 1 ? "guest" : "guests"}</span>
+                </div>
+              </div>
+              <Button
+                asChild
+                size="lg"
+                className="w-full rounded-full"
+                onClick={onClose}
+              >
+                <Link
+                  href={`/stay/${cabin.slug}?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`}
+                >
+                  Book Now
+                </Link>
+              </Button>
+            </div>
+          </Card>
+        ))}
+      </div>
     </div>
   )
 }

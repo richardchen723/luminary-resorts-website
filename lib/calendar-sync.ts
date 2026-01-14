@@ -22,7 +22,7 @@ export async function syncCalendarForListing(listingId: number): Promise<void> {
   console.log(`Syncing calendar for listing ${listingId} from ${startDateStr} to ${endDateStr}`)
   
   try {
-    // Fetch calendar data from Hostaway
+    // Fetch calendar data from Hostaway (always use Hostaway as source of truth)
     const calendar = await getCalendarAvailability(listingId, startDateStr, endDateStr)
     
     // Cache expires in 30 minutes
@@ -41,7 +41,7 @@ export async function syncCalendarForListing(listingId: number): Promise<void> {
         entry.available === 1 || 
         entry.status === "available"
       
-      // Extract reservations (if present)
+      // Extract reservations from API response (always use Hostaway data)
       const reservations = entry.reservations || null
       
       // Extract minimum stay
@@ -57,6 +57,7 @@ export async function syncCalendarForListing(listingId: number): Promise<void> {
         minimumStay,
         reservations
       )
+      
       cached++
     }
     

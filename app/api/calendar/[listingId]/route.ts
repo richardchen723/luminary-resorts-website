@@ -90,54 +90,58 @@ export async function GET(
       }
     }
     
-    // Try to get from cache first
+    // Always fetch directly from Hostaway first (source of truth)
+    // Cache is only used as fallback if Hostaway fetch fails
     let calendarData = await getCalendarCache(listingIdNum, startDateStr, endDateStr)
     
-    
-          // If cache is empty or missing dates, fetch directly from Hostaway (don't wait for background sync)
-          if (calendarData.length === 0) {
-      try {
-        const calendar = await getCalendarAvailability(listingIdNum, startDateStr, endDateStr)
-        
-        // Return full calendar entries (preserve all fields)
-        const calendarFormatted: Record<string, HostawayCalendarEntry> = {}
-        
-        // Handle both array and object formats
-        if (Array.isArray(calendar)) {
-          for (const entry of calendar) {
-            if (entry && entry.date) {
-              calendarFormatted[entry.date] = entry as HostawayCalendarEntry
-            }
-          }
-        } else {
-          for (const [date, entry] of Object.entries(calendar)) {
-            if (date.match(/^\d+$/)) {
-              if (entry && typeof entry === 'object' && 'date' in entry) {
-                const actualDate = (entry as any).date
-                calendarFormatted[actualDate] = entry as HostawayCalendarEntry
-              }
-            } else {
-              calendarFormatted[date] = entry as HostawayCalendarEntry
-            }
+    // Always fetch directly from Hostaway (source of truth)
+    try {
+      const calendar = await getCalendarAvailability(listingIdNum, startDateStr, endDateStr)
+      
+      // Return full calendar entries (preserve all fields)
+      const calendarFormatted: Record<string, HostawayCalendarEntry> = {}
+      
+      // Handle both array and object formats
+      if (Array.isArray(calendar)) {
+        for (const entry of calendar) {
+          if (entry && entry.date) {
+            calendarFormatted[entry.date] = entry as HostawayCalendarEntry
           }
         }
-        
-        // Trigger sync in background to update cache
-        syncCalendarForListing(listingIdNum).catch((error) => {
-          console.error(`Background sync failed for listing ${listingIdNum}:`, error)
-        })
-        
-        return NextResponse.json({
-          listingId: listingIdNum,
-          calendar: calendarFormatted,
-          cached: false,
-          dateRange: {
-            startDate: startDateStr,
-            endDate: endDateStr,
-          },
-        })
-      } catch (error: any) {
-        console.error(`[CALENDAR API] Error fetching from Hostaway for listing ${listingIdNum}:`, error)
+      } else {
+        for (const [date, entry] of Object.entries(calendar)) {
+          if (date.match(/^\d+$/)) {
+            if (entry && typeof entry === 'object' && 'date' in entry) {
+              const actualDate = (entry as any).date
+              calendarFormatted[actualDate] = entry as HostawayCalendarEntry
+            }
+          } else {
+            calendarFormatted[date] = entry as HostawayCalendarEntry
+          }
+        }
+      }
+      
+      // Trigger sync in background to update cache
+      syncCalendarForListing(listingIdNum).catch((error) => {
+        console.error(`Background sync failed for listing ${listingIdNum}:`, error)
+      })
+      
+      return NextResponse.json({
+        listingId: listingIdNum,
+        calendar: calendarFormatted,
+        cached: false,
+        dateRange: {
+          startDate: startDateStr,
+          endDate: endDateStr,
+        },
+      })
+    } catch (error: any) {
+      console.error(`[CALENDAR API] Error fetching from Hostaway for listing ${listingIdNum}:`, error)
+      // If Hostaway fetch fails, fall back to cache if available
+      if (calendarData.length > 0) {
+        console.warn(`[CALENDAR API] Hostaway fetch failed, using cache as fallback for listing ${listingIdNum}`)
+        // Continue to cache conversion below
+      } else {
         return NextResponse.json({
           listingId: listingIdNum,
           calendar: {},
@@ -147,7 +151,7 @@ export async function GET(
       }
     }
     
-    // Convert cache entries to calendar format (full entries with reservations and minimumStay)
+    // Convert cache entries to calendar format (only used as fallback if Hostaway fetch failed)
     const calendar: Record<string, HostawayCalendarEntry> = {}
     
     for (const entry of calendarData) {

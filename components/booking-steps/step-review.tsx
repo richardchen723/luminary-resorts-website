@@ -10,6 +10,8 @@ interface StepReviewProps {
   checkIn: string
   checkOut: string
   guests: number
+  pets?: number
+  infants?: number
   pricing: {
     nightlyRate: number
     nights: number
@@ -27,6 +29,8 @@ export function StepReview({
   checkIn,
   checkOut,
   guests,
+  pets = 0,
+  infants = 0,
   pricing,
 }: StepReviewProps) {
   const nights = Math.ceil(
@@ -79,7 +83,11 @@ export function StepReview({
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Users className="w-4 h-4" />
-                <span>{guests} {guests === 1 ? "guest" : "guests"}</span>
+                <span>
+                  {guests} {guests === 1 ? "guest" : "guests"}
+                  {pets > 0 && `, ${pets} ${pets === 1 ? "pet" : "pets"}`}
+                  {infants > 0 && `, ${infants} ${infants === 1 ? "infant" : "infants"}`}
+                </span>
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Home className="w-4 h-4" />

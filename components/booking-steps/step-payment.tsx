@@ -71,7 +71,7 @@ function PaymentForm({ onPaymentSuccess, isLoading: externalLoading }: Omit<Step
   const isLoading = isProcessing || externalLoading || false
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form id="payment-form" onSubmit={handleSubmit} className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold mb-4">Payment Information</h2>
         <p className="text-muted-foreground">Your payment information is secure and encrypted.</p>
@@ -97,21 +97,6 @@ function PaymentForm({ onPaymentSuccess, isLoading: externalLoading }: Omit<Step
           </div>
         </div>
       </Card>
-
-      <button
-        type="submit"
-        disabled={isLoading || !stripe || !elements}
-        className="w-full py-3 px-4 bg-primary text-primary-foreground rounded-full font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Processing...
-          </>
-        ) : (
-          "Complete Booking"
-        )}
-      </button>
     </form>
   )
 }

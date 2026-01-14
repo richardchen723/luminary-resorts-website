@@ -2,7 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
@@ -10,12 +11,27 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Mail, Phone, MapPin } from "lucide-react"
 
 export default function ContactPage() {
+  const searchParams = useSearchParams()
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     inquiryType: "reservation",
     message: "",
   })
+
+  // Pre-fill form from query parameters
+  useEffect(() => {
+    const inquiryType = searchParams.get("inquiryType")
+    const message = searchParams.get("message")
+    
+    if (inquiryType || message) {
+      setFormData((prev) => ({
+        ...prev,
+        ...(inquiryType && { inquiryType }),
+        ...(message && { message: decodeURIComponent(message) }),
+      }))
+    }
+  }, [searchParams])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle")
   const [submitMessage, setSubmitMessage] = useState("")

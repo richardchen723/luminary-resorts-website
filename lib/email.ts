@@ -43,6 +43,24 @@ function getTransporter() {
 }
 
 /**
+ * Get cabin address based on cabin name
+ */
+function getCabinAddress(cabinName: string): string {
+  const cabinLower = cabinName.toLowerCase()
+  if (cabinLower.includes("moss")) {
+    return "50 Snowhill Rd, Coldspring TX, 77331"
+  } else if (cabinLower.includes("mist")) {
+    return "100 Snowhill Rd, Coldspring TX, 77331"
+  } else if (cabinLower.includes("sol")) {
+    return "150 Snowhill Rd, Coldspring TX, 77331"
+  } else if (cabinLower.includes("dew")) {
+    return "200 Snowhill Rd, Coldspring TX, 77331"
+  }
+  // Default address
+  return "50 Snowhill Rd, Coldspring TX, 77331"
+}
+
+/**
  * Generate HTML email template for booking confirmation
  */
 function generateBookingConfirmationEmail(data: BookingConfirmationEmailData): string {
@@ -54,6 +72,7 @@ function generateBookingConfirmationEmail(data: BookingConfirmationEmailData): s
   const formattedCheckOut = format(checkOutDate, "EEEE, MMMM d, yyyy")
   const checkInTime = "4:00 PM"
   const checkOutTime = "11:00 AM"
+  const cabinAddress = getCabinAddress(cabinName)
 
   return `
 <!DOCTYPE html>
@@ -161,8 +180,9 @@ function generateBookingConfirmationEmail(data: BookingConfirmationEmailData): s
     .info-row {
       display: flex;
       justify-content: space-between;
-      padding: 12px 0;
-      border-bottom: 1px solid #F5F5F0;
+      align-items: flex-start;
+      padding: 15px 0;
+      border-bottom: 1px solid #E0E0E0;
     }
     
     .info-row:last-child {
@@ -173,6 +193,7 @@ function generateBookingConfirmationEmail(data: BookingConfirmationEmailData): s
       font-size: 14px;
       color: #666;
       font-weight: 400;
+      flex: 0 0 auto;
     }
     
     .info-value {
@@ -180,6 +201,8 @@ function generateBookingConfirmationEmail(data: BookingConfirmationEmailData): s
       color: #2C2E21;
       font-weight: 500;
       text-align: right;
+      flex: 1;
+      margin-left: 20px;
     }
     
     .pricing-section {
@@ -192,17 +215,25 @@ function generateBookingConfirmationEmail(data: BookingConfirmationEmailData): s
     .pricing-row {
       display: flex;
       justify-content: space-between;
-      padding: 8px 0;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #E0E0E0;
+    }
+    
+    .pricing-row:last-of-type:not(.pricing-total) {
+      border-bottom: none;
     }
     
     .pricing-total {
       display: flex;
       justify-content: space-between;
-      padding: 15px 0;
-      margin-top: 15px;
+      align-items: center;
+      padding: 20px 0 0 0;
+      margin-top: 20px;
       border-top: 2px solid #2C2E21;
-      font-size: 18px;
-      font-weight: 600;
+      font-size: 20px;
+      font-weight: 700;
+      color: #2C2E21;
     }
     
     .instructions {
@@ -327,11 +358,11 @@ function generateBookingConfirmationEmail(data: BookingConfirmationEmailData): s
         </div>
         <div class="info-row">
           <span class="info-label">Check-in</span>
-          <span class="info-value">${formattedCheckIn}<br><span style="font-size: 12px; color: #666;">${checkInTime}</span></span>
+          <span class="info-value">${formattedCheckIn}<br><span style="font-size: 12px; color: #666; font-weight: 400;">${checkInTime}</span></span>
         </div>
         <div class="info-row">
           <span class="info-label">Check-out</span>
-          <span class="info-value">${formattedCheckOut}<br><span style="font-size: 12px; color: #666;">${checkOutTime}</span></span>
+          <span class="info-value">${formattedCheckOut}<br><span style="font-size: 12px; color: #666; font-weight: 400;">${checkOutTime}</span></span>
         </div>
         <div class="info-row">
           <span class="info-label">Duration</span>
@@ -379,7 +410,7 @@ function generateBookingConfirmationEmail(data: BookingConfirmationEmailData): s
           <li><strong>Self Check-in:</strong> You'll receive detailed arrival instructions and access codes via email 24 hours before your stay.</li>
           <li><strong>Check-in Time:</strong> ${checkInTime} on ${formattedCheckIn}</li>
           <li><strong>Check-out Time:</strong> ${checkOutTime} on ${formattedCheckOut}</li>
-          <li><strong>Location:</strong> 50 Snowhill Rd, Coldspring TX, 77331</li>
+          <li><strong>Location:</strong> ${cabinAddress}</li>
           <li><strong>Parking:</strong> Free private parking is available at your cabin.</li>
         </ul>
       </div>
@@ -420,6 +451,7 @@ function generateBookingConfirmationEmailText(data: BookingConfirmationEmailData
   const checkOutDate = new Date(checkOut)
   const formattedCheckIn = format(checkInDate, "EEEE, MMMM d, yyyy")
   const formattedCheckOut = format(checkOutDate, "EEEE, MMMM d, yyyy")
+  const cabinAddress = getCabinAddress(cabinName)
 
   return `
 LUMINARY RESORTS
@@ -454,7 +486,7 @@ WHAT TO EXPECT
 • Self Check-in: You'll receive detailed arrival instructions and access codes via email 24 hours before your stay.
 • Check-in Time: 4:00 PM on ${formattedCheckIn}
 • Check-out Time: 11:00 AM on ${formattedCheckOut}
-• Location: 50 Snowhill Rd, Coldspring TX, 77331
+• Location: ${cabinAddress}
 • Parking: Free private parking is available at your cabin.
 
 If you have any questions or need assistance, please don't hesitate to reach out. We're here to ensure your stay is everything you hope for.

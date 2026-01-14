@@ -40,10 +40,14 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
   const initialCheckIn = searchParams.get("checkIn") || ""
   const initialCheckOut = searchParams.get("checkOut") || ""
   const initialGuests = searchParams.get("guests") || "2"
+  const initialPets = searchParams.get("pets") || "0"
+  const initialInfants = searchParams.get("infants") || "0"
 
   const [checkIn, setCheckIn] = useState(initialCheckIn)
   const [checkOut, setCheckOut] = useState(initialCheckOut)
   const [guests, setGuests] = useState(initialGuests)
+  const [pets, setPets] = useState(initialPets)
+  const [infants, setInfants] = useState(initialInfants)
   const [isSelectingNewRange, setIsSelectingNewRange] = useState(false) // Track if we're starting a fresh selection
   const [previousSelection, setPreviousSelection] = useState<{checkIn: string, checkOut: string} | null>(null) // Track previous complete selection
   const [isCalendarOpen, setIsCalendarOpen] = useState(false) // Control calendar popover visibility
@@ -57,7 +61,6 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     }
   }, [checkIn, checkOut, isSelectingNewRange])
   
-  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false)
   const [isLoadingPricing, setIsLoadingPricing] = useState(false)
   const [pricing, setPricing] = useState<{
     nightlyRate: number
@@ -418,13 +421,15 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     }
 
     // Store pricing in sessionStorage to ensure exact same price on booking page
-    const pricingKey = `pricing_${cabinSlug}_${checkIn}_${checkOut}_${guests}`
+    const pricingKey = `pricing_${cabinSlug}_${checkIn}_${checkOut}_${guests}_${pets}_${infants}`
     try {
       sessionStorage.setItem(pricingKey, JSON.stringify({
         ...pricing,
         checkIn,
         checkOut,
         guests,
+        pets,
+        infants,
         timestamp: Date.now()
       }))
     } catch (e) {
@@ -432,54 +437,42 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     }
 
     // Navigate to booking page with pre-filled data
-    router.push(
-      `/booking/${cabinSlug}?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`
-    )
+    const params = new URLSearchParams({
+      checkIn,
+      checkOut,
+      guests,
+      ...(pets !== "0" && { pets }),
+      ...(infants !== "0" && { infants }),
+    })
+    router.push(`/booking/${cabinSlug}?${params.toString()}`)
   }
 
-  const handleCheckAvailability = async () => {
-    if (!checkIn || !checkOut) {
-      setError("Please select check-in and check-out dates")
-      return
+  const handleSendInquiry = () => {
+    // Navigate to contact page with pre-filled inquiry information
+    const cabinName = cabinSlug.charAt(0).toUpperCase() + cabinSlug.slice(1)
+    const dateRange = checkIn && checkOut 
+      ? `${format(new Date(checkIn), "MMM d")} - ${format(new Date(checkOut), "MMM d, yyyy")}`
+      : checkIn 
+      ? format(new Date(checkIn), "MMM d, yyyy")
+      : ""
+    
+    const guestInfo = []
+    if (guests && guests !== "0") {
+      guestInfo.push(`${guests} ${guests === "1" ? "guest" : "guests"}`)
     }
-
-    setIsCheckingAvailability(true)
-    setError(null)
-
-    try {
-      const response = await fetch("/api/availability", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          slug: cabinSlug,
-          startDate: checkIn,
-          endDate: checkOut,
-          guests: parseInt(guests, 10),
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to check availability")
-      }
-
-      const data = await response.json()
-      const cabin = data.cabins?.[0]
-
-      if (cabin && cabin.available) {
-        // Load pricing after confirming availability
-        await loadPricing()
-      } else {
-        setError("This cabin is not available for the selected dates")
-        setPricing(null)
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to check availability")
-    } finally {
-      setIsCheckingAvailability(false)
+    if (pets && pets !== "0") {
+      guestInfo.push(`${pets} ${pets === "1" ? "pet" : "pets"}`)
     }
+    if (infants && infants !== "0") {
+      guestInfo.push(`${infants} ${infants === "1" ? "infant" : "infants"}`)
+    }
+    const guestInfoStr = guestInfo.length > 0 ? ` for ${guestInfo.join(", ")}` : ""
+    
+    const inquiryMessage = `I'm interested in booking ${cabinName} cabin${dateRange ? ` for ${dateRange}` : ""}${guestInfoStr}.${dateRange ? "" : " Please let me know about availability."}`
+    
+    // Navigate to contact page with pre-filled message
+    const contactUrl = `/contact?inquiryType=reservation&message=${encodeURIComponent(inquiryMessage)}`
+    router.push(contactUrl)
   }
 
   // Pre-compute next check-in map once (O(n) operation, done once per calendarData change)
@@ -846,7 +839,6 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         </div>
 
         <div className="grid grid-cols-1 gap-4">
-
           <div>
             <label htmlFor="cabin-guests" className="block text-sm font-medium mb-2">
               Guests
@@ -859,6 +851,39 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
             >
               <option value="1">1 Guest</option>
               <option value="2">2 Guests</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="cabin-pets" className="block text-sm font-medium mb-2">
+              Pets
+            </label>
+            <select
+              id="cabin-pets"
+              value={pets}
+              onChange={(e) => setPets(e.target.value)}
+              className="w-full px-4 py-3.5 rounded-md border border-input bg-background focus:ring-2 focus:ring-ring focus:outline-none text-base"
+            >
+              <option value="0">No Pets</option>
+              <option value="1">1 Pet</option>
+              <option value="2">2 Pets</option>
+              <option value="3">3 Pets</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="cabin-infants" className="block text-sm font-medium mb-2">
+              Infants
+            </label>
+            <select
+              id="cabin-infants"
+              value={infants}
+              onChange={(e) => setInfants(e.target.value)}
+              className="w-full px-4 py-3.5 rounded-md border border-input bg-background focus:ring-2 focus:ring-ring focus:outline-none text-base"
+            >
+              <option value="0">No Infants</option>
+              <option value="1">1 Infant</option>
+              <option value="2">2 Infants</option>
             </select>
           </div>
         </div>
@@ -952,25 +977,15 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         )}
 
         <div className="flex flex-col gap-3 pt-2">
-          {!pricing && (
-            <Button
-              type="button"
-              onClick={handleCheckAvailability}
-              disabled={isCheckingAvailability || !checkIn || !checkOut}
-              size="lg"
-              className="w-full rounded-full"
-              variant="outline"
-            >
-              {isCheckingAvailability ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Checking...
-                </>
-              ) : (
-                "Check Availability"
-              )}
-            </Button>
-          )}
+          <Button
+            type="button"
+            onClick={handleSendInquiry}
+            size="lg"
+            className="w-full rounded-full"
+            variant="outline"
+          >
+            Send Inquiry
+          </Button>
 
           <Button
             type="button"

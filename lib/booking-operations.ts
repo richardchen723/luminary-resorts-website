@@ -52,6 +52,8 @@ export async function createBookingOperation(params: {
   checkOut: string
   guests: number
   adults: number
+  pets?: number
+  infants?: number
   guestInfo: {
     firstName: string
     lastName: string
@@ -73,7 +75,7 @@ export async function createBookingOperation(params: {
   }
   stripeMetadata?: Record<string, any>
 }): Promise<{ booking: Booking; hostawayReservationId: number }> {
-  const { paymentIntentId, listingId, checkIn, checkOut, guests, adults, guestInfo, pricing, stripeMetadata } = params
+  const { paymentIntentId, listingId, checkIn, checkOut, guests, adults, pets = 0, infants = 0, guestInfo, pricing, stripeMetadata } = params
   
   // Get slug and listingMapId
   const slug = getSlugByListingId(listingId)
@@ -101,8 +103,8 @@ export async function createBookingOperation(params: {
       numberOfGuests: guests,
       adults,
       children: null,
-      infants: null,
-      pets: null,
+      infants: infants || null,
+      pets: pets || null,
       guestFirstName: guestInfo.firstName,
       guestLastName: guestInfo.lastName,
       guestName: `${guestInfo.firstName} ${guestInfo.lastName}`,
@@ -154,8 +156,8 @@ export async function createBookingOperation(params: {
       number_of_guests: guests,
       adults,
       children: null,
-      infants: null,
-      pets: null,
+      infants: infants || null,
+      pets: pets || null,
       total_price: pricing.total,
       currency: pricing.currency,
       nightly_rate: pricing.nightlyRate,
@@ -215,8 +217,8 @@ export async function createBookingOperation(params: {
       number_of_guests: guests,
       adults,
       children: null,
-      infants: null,
-      pets: null,
+      infants: infants || null,
+      pets: pets || null,
       total_price: pricing.total,
       currency: pricing.currency,
       nightly_rate: pricing.nightlyRate,

@@ -17,6 +17,8 @@ interface ConfirmPaymentRequest {
   checkIn: string
   checkOut: string
   guests: number
+  pets?: number
+  infants?: number
   // Exact pricing from review page - MUST be provided
   pricing?: {
     nightlyRate: number
@@ -44,7 +46,7 @@ interface ConfirmPaymentRequest {
 export async function POST(request: Request) {
   try {
     const body: ConfirmPaymentRequest = await request.json()
-    const { paymentIntentId, slug, checkIn, checkOut, guests, pricing, guestInfo } = body
+    const { paymentIntentId, slug, checkIn, checkOut, guests, pets = 0, infants = 0, pricing, guestInfo } = body
 
     // Validate required fields
     if (!paymentIntentId || !slug || !checkIn || !checkOut || !guests || !guestInfo) {
@@ -146,6 +148,8 @@ export async function POST(request: Request) {
         checkOut,
         guests,
         adults: guests, // Assume all adults for now
+        pets,
+        infants,
         guestInfo,
         pricing: finalPricing,
         stripeMetadata: {

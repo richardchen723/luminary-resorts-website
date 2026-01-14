@@ -27,6 +27,8 @@ export default function BookingPage() {
   const checkIn = searchParams.get("checkIn") || ""
   const checkOut = searchParams.get("checkOut") || ""
   const guests = parseInt(searchParams.get("guests") || "2", 10)
+  const pets = parseInt(searchParams.get("pets") || "0", 10)
+  const infants = parseInt(searchParams.get("infants") || "0", 10)
 
   const [cabin, setCabin] = useState<Cabin | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -103,13 +105,13 @@ export default function BookingPage() {
 
       // First, try to load pricing from sessionStorage (from cabin detail page)
       // This ensures exact same price as shown on cabin detail page
-      const pricingKey = `pricing_${slug}_${checkIn}_${checkOut}_${guests}`
+      const pricingKey = `pricing_${slug}_${checkIn}_${checkOut}_${guests}_${pets}_${infants}`
       try {
         const cachedPricing = sessionStorage.getItem(pricingKey)
         if (cachedPricing) {
           const parsed = JSON.parse(cachedPricing)
-          // Verify the cached pricing is for the same dates and guests
-          if (parsed.checkIn === checkIn && parsed.checkOut === checkOut && parsed.guests === guests) {
+          // Verify the cached pricing is for the same dates, guests, pets, and infants
+          if (parsed.checkIn === checkIn && parsed.checkOut === checkOut && parsed.guests === guests && parsed.pets === pets && parsed.infants === infants) {
             // Use cached pricing if it's less than 10 minutes old
             if (Date.now() - parsed.timestamp < 10 * 60 * 1000) {
               setPricing({
@@ -366,8 +368,11 @@ export default function BookingPage() {
       setError(null)
       setCurrentStep("payment")
     } else if (currentStep === "payment") {
-      // Payment is handled by Stripe Elements, this step is just for navigation
-      // The actual payment submission happens in StepPayment component
+      // Submit the payment form
+      const paymentForm = document.getElementById("payment-form") as HTMLFormElement
+      if (paymentForm) {
+        paymentForm.requestSubmit()
+      }
       setError(null)
     }
   }
@@ -454,6 +459,8 @@ export default function BookingPage() {
           checkIn,
           checkOut,
           guests,
+          pets,
+          infants,
           // Send exact pricing from review page - this ensures booking uses same price
           pricing: {
             nightlyRate: pricing.nightlyRate,
@@ -582,6 +589,8 @@ export default function BookingPage() {
               checkIn={checkIn}
               checkOut={checkOut}
               guests={guests}
+              pets={pets}
+              infants={infants}
               pricing={pricing}
             />
           )}
