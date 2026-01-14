@@ -124,6 +124,24 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Improve date input display */
+  input[type="date"] {
+    color-scheme: light;
+  }
+  
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    right: 0;
+  }
+  
+  .dark input[type="date"] {
+    color-scheme: dark;
+  }
 }
 
 /* Smooth scroll behavior */

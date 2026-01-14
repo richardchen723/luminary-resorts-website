@@ -9,11 +9,12 @@ import { Calendar as CalendarIcon, Users, Loader2, DollarSign, AlertCircle, X, X
 import { getListingIdBySlug } from "@/lib/listing-map"
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { format, isSameDay, addMonths, startOfMonth, endOfMonth } from "date-fns"
+import { format, isSameDay, addMonths, startOfMonth, endOfMonth, isBefore, startOfDay, eachDayOfInterval, parseISO } from "date-fns"
 import type { DateRange } from "react-day-picker"
 import type { HostawayCalendarEntry } from "@/types/hostaway"
 import { calculateCalendarStatus, buildNextCheckInMap } from "@/lib/calendar-status"
 import { cn } from "@/lib/utils"
+import { roundToTwoDecimals } from "@/lib/utils"
 import { DayButton } from "react-day-picker"
 
 interface CabinBookingWidgetProps {
@@ -92,14 +93,14 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     fetchCalendar()
   }, [listingId])
 
-  // Load pricing when dates change
+  // Load pricing when dates change or calendar data is available
   useEffect(() => {
     if (checkIn && checkOut && checkIn < checkOut) {
       loadPricing()
     } else {
       setPricing(null)
     }
-  }, [checkIn, checkOut, guests, listingId])
+  }, [checkIn, checkOut, guests, listingId, calendarData])
 
   const loadPricing = async () => {
     if (!listingId) {
@@ -115,6 +116,72 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
       const start = new Date(checkIn)
       const end = new Date(checkOut)
       const nights = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+      
+      // Calculate pricing from calendar data (preferred method)
+      // Sum prices from each calendar date in the range
+      let subtotalFromCalendar: number | null = null
+      let currencyFromCalendar: string = "USD"
+      
+      if (calendarData && Object.keys(calendarData).length > 0) {
+        try {
+          // Get all dates in the range (check-in to check-out, excluding check-out day)
+          // eachDayOfInterval includes both start and end, so we need to exclude the end date
+          const checkOutDate = parseISO(checkOut)
+          checkOutDate.setDate(checkOutDate.getDate() - 1) // Day before check-out
+          const dateRange = eachDayOfInterval({
+            start: parseISO(checkIn),
+            end: checkOutDate
+          })
+          
+          let totalPrice = 0
+          let datesWithPrice = 0
+          
+          for (const date of dateRange) {
+            const dateStr = format(date, "yyyy-MM-dd")
+            const entry = calendarData[dateStr]
+            
+            if (entry && entry.price !== null && entry.price !== undefined) {
+              totalPrice += entry.price
+              datesWithPrice++
+              // Get currency from first entry (assuming all dates use same currency)
+              if (datesWithPrice === 1) {
+                currencyFromCalendar = "USD" // Default, could be extracted from entry if available
+              }
+            }
+          }
+          
+          // If we have prices for all dates, use calendar-based pricing
+          if (datesWithPrice === dateRange.length && totalPrice > 0) {
+            subtotalFromCalendar = totalPrice
+          }
+        } catch (calendarPricingError) {
+          console.warn("Error calculating pricing from calendar:", calendarPricingError)
+          // Continue to API pricing fallback
+        }
+      }
+      
+      // If we successfully calculated from calendar, use it
+      if (subtotalFromCalendar !== null && subtotalFromCalendar > 0) {
+        const cleaningFee = 100
+        const tax = roundToTwoDecimals(subtotalFromCalendar * 0.12)
+        const channelFee = roundToTwoDecimals(subtotalFromCalendar * 0.02)
+        const total = roundToTwoDecimals(subtotalFromCalendar + cleaningFee + tax + channelFee)
+        const nightlyRate = nights > 0 ? roundToTwoDecimals(subtotalFromCalendar / nights) : 0
+        
+        setPricing({
+          nightlyRate,
+          nights,
+          subtotal: roundToTwoDecimals(subtotalFromCalendar),
+          cleaningFee,
+          tax,
+          channelFee,
+          total,
+          currency: currencyFromCalendar,
+          available: true,
+        })
+        setIsLoadingPricing(false)
+        return
+      }
 
       // Call pricing API directly
       const requestBody = {
@@ -161,14 +228,14 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
 
               if (cabin && cabin.available) {
                 // Calculate pricing using base price
-                const subtotal = basePrice * nights
+                const subtotal = roundToTwoDecimals(basePrice * nights)
                 const cleaningFee = 100
-                const tax = Math.round(subtotal * 0.12) // ~12% tax
-                const channelFee = Math.round(subtotal * 0.02) // ~2% channel fee
-                const total = subtotal + cleaningFee + tax + channelFee
+                const tax = roundToTwoDecimals(subtotal * 0.12) // ~12% tax
+                const channelFee = roundToTwoDecimals(subtotal * 0.02) // ~2% channel fee
+                const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee)
 
                 setPricing({
-                  nightlyRate: basePrice,
+                  nightlyRate: roundToTwoDecimals(basePrice),
                   nights,
                   subtotal,
                   cleaningFee,
@@ -222,14 +289,14 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
 
               if (cabin && cabin.available) {
                 // Calculate pricing using base price
-                const subtotal = basePrice * nights
+                const subtotal = roundToTwoDecimals(basePrice * nights)
                 const cleaningFee = 100
-                const tax = Math.round(subtotal * 0.12)
-                const channelFee = Math.round(subtotal * 0.02)
-                const total = subtotal + cleaningFee + tax + channelFee
+                const tax = roundToTwoDecimals(subtotal * 0.12)
+                const channelFee = roundToTwoDecimals(subtotal * 0.02)
+                const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee)
 
                 setPricing({
-                  nightlyRate: basePrice,
+                  nightlyRate: roundToTwoDecimals(basePrice),
                   nights,
                   subtotal,
                   cleaningFee,
@@ -248,13 +315,13 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         }
         // If fallback didn't set pricing, use hardcoded base price as last resort
         const basePrice = 200
-        const subtotal = basePrice * nights
+        const subtotal = roundToTwoDecimals(basePrice * nights)
         const cleaningFee = 100
-        const tax = Math.round(subtotal * 0.12)
-        const channelFee = Math.round(subtotal * 0.02)
-        const total = subtotal + cleaningFee + tax + channelFee
+        const tax = roundToTwoDecimals(subtotal * 0.12)
+        const channelFee = roundToTwoDecimals(subtotal * 0.02)
+        const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee)
         setPricing({
-          nightlyRate: basePrice,
+          nightlyRate: roundToTwoDecimals(basePrice),
           nights,
           subtotal,
           cleaningFee,
@@ -271,17 +338,17 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         const breakdown = pricingData.breakdown
         // Use fees and taxes from API if provided, otherwise calculate
         const cleaningFee = breakdown.fees || 100
-        const tax = breakdown.taxes || Math.round(breakdown.subtotal * 0.12)
-        const channelFee = Math.round(breakdown.subtotal * 0.02)
+        const tax = breakdown.taxes ? roundToTwoDecimals(breakdown.taxes) : roundToTwoDecimals(breakdown.subtotal * 0.12)
+        const channelFee = roundToTwoDecimals(breakdown.subtotal * 0.02)
         
         // If API provides total, use it; otherwise calculate
-        const calculatedTotal = breakdown.subtotal + cleaningFee + tax + channelFee
-        const total = breakdown.total || calculatedTotal
+        const calculatedTotal = roundToTwoDecimals(breakdown.subtotal + cleaningFee + tax + channelFee)
+        const total = breakdown.total ? roundToTwoDecimals(breakdown.total) : calculatedTotal
 
         setPricing({
-          nightlyRate: breakdown.nightlyRate || (breakdown.nights > 0 ? breakdown.subtotal / breakdown.nights : 0),
+          nightlyRate: breakdown.nightlyRate ? roundToTwoDecimals(breakdown.nightlyRate) : (breakdown.nights > 0 ? roundToTwoDecimals(breakdown.subtotal / breakdown.nights) : 0),
           nights: breakdown.nights || nights,
-          subtotal: breakdown.subtotal,
+          subtotal: roundToTwoDecimals(breakdown.subtotal),
           cleaningFee,
           tax,
           channelFee,
@@ -293,14 +360,14 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         // API says available but no breakdown - use fallback calculation
         // This shouldn't happen, but handle gracefully
         const basePrice = 200 // Fallback
-        const subtotal = basePrice * nights
+        const subtotal = roundToTwoDecimals(basePrice * nights)
         const cleaningFee = 100
-        const tax = Math.round(subtotal * 0.12)
-        const channelFee = Math.round(subtotal * 0.02)
-        const total = subtotal + cleaningFee + tax + channelFee
+        const tax = roundToTwoDecimals(subtotal * 0.12)
+        const channelFee = roundToTwoDecimals(subtotal * 0.02)
+        const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee)
 
         setPricing({
-          nightlyRate: basePrice,
+          nightlyRate: roundToTwoDecimals(basePrice),
           nights,
           subtotal,
           cleaningFee,
@@ -313,13 +380,13 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
       } else {
         // available: false - use hardcoded base price as last resort
         const basePrice = 200
-        const subtotal = basePrice * nights
+        const subtotal = roundToTwoDecimals(basePrice * nights)
         const cleaningFee = 100
-        const tax = Math.round(subtotal * 0.12)
-        const channelFee = Math.round(subtotal * 0.02)
-        const total = subtotal + cleaningFee + tax + channelFee
+        const tax = roundToTwoDecimals(subtotal * 0.12)
+        const channelFee = roundToTwoDecimals(subtotal * 0.02)
+        const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee)
         setPricing({
-          nightlyRate: basePrice,
+          nightlyRate: roundToTwoDecimals(basePrice),
           nights,
           subtotal,
           cleaningFee,
@@ -348,6 +415,20 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     if (!pricing || !pricing.available || pricing.total === 0) {
       setError("This cabin is not available for the selected dates")
       return
+    }
+
+    // Store pricing in sessionStorage to ensure exact same price on booking page
+    const pricingKey = `pricing_${cabinSlug}_${checkIn}_${checkOut}_${guests}`
+    try {
+      sessionStorage.setItem(pricingKey, JSON.stringify({
+        ...pricing,
+        checkIn,
+        checkOut,
+        guests,
+        timestamp: Date.now()
+      }))
+    } catch (e) {
+      console.warn("Failed to store pricing in sessionStorage:", e)
     }
 
     // Navigate to booking page with pre-filled data
@@ -530,6 +611,11 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
 
   // Set minimum date to today
   const today = new Date().toISOString().split("T")[0]
+  
+  // Calculate fromDate for calendar (prevent past dates)
+  const calendarFromDate = useMemo(() => {
+    return startOfDay(new Date())
+  }, [])
 
   return (
     <Card className={`p-6 ${className}`}>
@@ -559,6 +645,8 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
             <PopoverContent className="w-auto p-0" align="start" side="bottom">
               <Calendar
                 mode="range"
+                fromDate={calendarFromDate} // Prevent navigation to past months and block dates before today
+                defaultMonth={new Date()} // Start calendar on current month
                 selected={
                   checkIn && checkOut
                     ? {
@@ -653,13 +741,27 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                   }
                 }}
                 disabled={(date) => {
-                  const today = new Date(new Date().setHours(0, 0, 0, 0))
-                  if (date < today) return true
+                  // CRITICAL: Block all dates before today - this must be the first check
+                  // Use startOfDay to normalize to midnight and isBefore for reliable comparison
+                  if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+                    return true // Invalid dates are disabled
+                  }
                   
-                  // If check-in is selected, block all dates before it
+                  const today = startOfDay(new Date())
+                  const dateToCheck = startOfDay(date)
+                  
+                  // Block dates before today (not including today)
+                  // This check must happen first before any other logic
+                  if (isBefore(dateToCheck, today)) {
+                    return true
+                  }
+                  
+                  // If check-in is selected, block all dates on or before it
+                  // This ensures checkout date must be after check-in date
                   if (checkIn) {
                     const checkInDateObj = new Date(checkIn + 'T00:00:00')
-                    if (date < checkInDateObj) {
+                    // Block dates on or before check-in (use <= to include the check-in date itself)
+                    if (date <= checkInDateObj) {
                       return true
                     }
                     
@@ -703,10 +805,10 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                       return true
                     }
                     // If we have a check-in but no checkOut, allow this date as checkout
+                    // (only if it's after check-in, which is already checked above)
                     if (checkIn) {
-                      const checkInDateObj = new Date(checkIn + 'T00:00:00')
-                      // Only allow if date is after check-in
-                      return date <= checkInDateObj
+                      // Date is already validated to be after check-in above, so allow it
+                      return false
                     }
                     // No check-in selected, disable for check-in selection
                     return true
@@ -767,7 +869,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
             <div className="pb-3 border-b border-border">
               <div className="text-3xl font-bold text-primary">
                 {pricing.currency === "USD" ? "$" : pricing.currency}
-                {pricing.nightlyRate.toLocaleString()} <span className="text-lg font-normal text-foreground">/ Night</span>
+                {pricing.nightlyRate.toFixed(2)} <span className="text-lg font-normal text-foreground">/ Night</span>
               </div>
             </div>
 
@@ -777,11 +879,11 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
                     {pricing.currency === "USD" ? "$" : pricing.currency}
-                    {pricing.nightlyRate.toLocaleString()} × {pricing.nights} {pricing.nights === 1 ? "night" : "nights"}
+                    {pricing.nightlyRate.toFixed(2)} × {pricing.nights} {pricing.nights === 1 ? "night" : "nights"}
                   </span>
                   <span className="font-medium">
                     {pricing.currency === "USD" ? "$" : pricing.currency}
-                    {pricing.subtotal.toLocaleString()}
+                    {pricing.subtotal.toFixed(2)}
                   </span>
                 </div>
 
@@ -790,7 +892,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                     <span className="text-muted-foreground">Cleaning Fee</span>
                     <span className="font-medium">
                       {pricing.currency === "USD" ? "$" : pricing.currency}
-                      {pricing.cleaningFee.toLocaleString()}
+                      {pricing.cleaningFee.toFixed(2)}
                     </span>
                   </div>
                 )}
@@ -800,7 +902,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                     <span className="text-muted-foreground">Lodging Tax</span>
                     <span className="font-medium">
                       {pricing.currency === "USD" ? "$" : pricing.currency}
-                      {pricing.tax.toLocaleString()}
+                      {pricing.tax.toFixed(2)}
                     </span>
                   </div>
                 )}
@@ -810,7 +912,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                     <span className="text-muted-foreground">Guest Channel Fee</span>
                     <span className="font-medium">
                       {pricing.currency === "USD" ? "$" : pricing.currency}
-                      {pricing.channelFee.toLocaleString()}
+                      {pricing.channelFee.toFixed(2)}
                     </span>
                   </div>
                 )}
@@ -820,7 +922,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                     <span className="font-semibold">Total</span>
                     <span className="text-2xl font-bold text-primary">
                       {pricing.currency === "USD" ? "$" : pricing.currency}
-                      {pricing.total.toLocaleString()}
+                      {pricing.total.toFixed(2)}
                     </span>
                   </div>
                 </div>

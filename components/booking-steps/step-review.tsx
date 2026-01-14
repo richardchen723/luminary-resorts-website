@@ -1,0 +1,147 @@
+"use client"
+
+import { Card } from "@/components/ui/card"
+import { Calendar, Users, DollarSign, Home } from "lucide-react"
+import type { Cabin } from "@/lib/cabins"
+
+interface StepReviewProps {
+  cabin: Cabin
+  checkIn: string
+  checkOut: string
+  guests: number
+  pricing: {
+    nightlyRate: number
+    nights: number
+    subtotal: number
+    cleaningFee: number
+    tax: number
+    channelFee: number
+    total: number
+    currency: string
+  } | null
+}
+
+export function StepReview({
+  cabin,
+  checkIn,
+  checkOut,
+  guests,
+  pricing,
+}: StepReviewProps) {
+  const nights = Math.ceil(
+    (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)
+  )
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-semibold mb-4">Review Your Booking</h2>
+        <p className="text-muted-foreground">Please review your booking details before proceeding.</p>
+      </div>
+
+      <Card className="p-6">
+        <div className="flex gap-6">
+          {cabin.images?.[0] && (
+            <div className="w-32 h-32 rounded-lg overflow-hidden flex-shrink-0">
+              <img
+                src={cabin.images[0]}
+                alt={cabin.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+          <div className="flex-1">
+            <h3 className="text-xl font-semibold mb-2">{cabin.name}</h3>
+            {cabin.subtitle && (
+              <p className="text-muted-foreground mb-4">{cabin.subtitle}</p>
+            )}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Calendar className="w-4 h-4" />
+                <span>
+                  {new Date(checkIn).toLocaleDateString("en-US", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}{" "}
+                  -{" "}
+                  {new Date(checkOut).toLocaleDateString("en-US", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Users className="w-4 h-4" />
+                <span>{guests} {guests === 1 ? "guest" : "guests"}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Home className="w-4 h-4" />
+                <span>{nights} {nights === 1 ? "night" : "nights"}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {pricing && pricing.total > 0 && (
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4">Price Summary</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">
+                {pricing.currency === "USD" ? "$" : pricing.currency}
+                {pricing.nightlyRate.toFixed(2)} × {pricing.nights} {pricing.nights === 1 ? "night" : "nights"}
+              </span>
+              <span className="font-medium">
+                {pricing.currency === "USD" ? "$" : pricing.currency}
+                {pricing.subtotal.toFixed(2)}
+              </span>
+            </div>
+
+            {pricing.cleaningFee > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Cleaning Fee</span>
+                <span className="font-medium">
+                  {pricing.currency === "USD" ? "$" : pricing.currency}
+                  {pricing.cleaningFee.toFixed(2)}
+                </span>
+              </div>
+            )}
+
+            {pricing.tax > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Lodging Tax</span>
+                <span className="font-medium">
+                  {pricing.currency === "USD" ? "$" : pricing.currency}
+                  {pricing.tax.toFixed(2)}
+                </span>
+              </div>
+            )}
+
+            {pricing.channelFee > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Guest Channel Fee</span>
+                <span className="font-medium">
+                  {pricing.currency === "USD" ? "$" : pricing.currency}
+                  {pricing.channelFee.toFixed(2)}
+                </span>
+              </div>
+            )}
+
+            <div className="border-t pt-3 flex justify-between items-center">
+              <span className="text-lg font-semibold">Total</span>
+              <span className="text-2xl font-bold text-primary">
+                {pricing.currency === "USD" ? "$" : pricing.currency}
+                {pricing.total.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </Card>
+      )}
+    </div>
+  )
+}

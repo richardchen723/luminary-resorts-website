@@ -75,7 +75,7 @@ export function HomeHero() {
             size="lg"
             className="rounded-full text-lg px-8 bg-white/10 backdrop-blur-sm hover:bg-white/20 border border-white/30"
           >
-            <Link href="#booking">Book Now</Link>
+            <Link href="#cabins">Book Now</Link>
           </Button>
           <Button
             asChild
@@ -83,7 +83,7 @@ export function HomeHero() {
             variant="outline"
             className="rounded-full text-lg px-8 bg-transparent border-white/50 hover:bg-white/10"
           >
-            <Link href="/stay/moss">Explore the Retreat</Link>
+            <Link href="#cabins">Explore the Retreat</Link>
           </Button>
         </div>
       </div>

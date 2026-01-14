@@ -11,6 +11,8 @@ import { CabinImageGallery } from "@/components/cabin-image-gallery"
 import { CabinHero } from "@/components/cabin-hero"
 import { ExpandableDescription } from "@/components/expandable-description"
 import { ExpandableAmenities } from "@/components/expandable-amenities"
+import { CabinBookingWidget } from "@/components/cabin-booking-widget"
+import { Suspense } from "react"
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -59,10 +61,10 @@ export default async function CabinDetailPage({ params }: PageProps) {
         <CabinImageGallery images={cabin.images} cabinName={cabin.name} />
       )}
 
-      {/* Details Section */}
-      <section className="py-24 px-4">
-        <div className="container mx-auto max-w-6xl">
-          <div className="grid md:grid-cols-3 gap-12">
+      {/* Details Section with Booking */}
+      <section id="booking" className="py-24 px-4">
+        <div className="container mx-auto max-w-7xl">
+          <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
             {/* Main Content */}
             <div className="md:col-span-2">
               <h2 className="font-serif text-4xl mb-6">About {cabin.name}</h2>
@@ -106,48 +108,11 @@ export default async function CabinDetailPage({ params }: PageProps) {
 
             {/* Sidebar */}
             <div className="md:col-span-1">
-              <Card className="sticky top-24">
-                <CardContent className="p-6">
-                  <h3 className="font-serif text-2xl mb-6">Booking Details</h3>
-                  <div className="space-y-6">
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Users className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Occupancy</p>
-                        <p className="text-lg font-medium">{cabin.occupancy}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Calendar className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Check-in / Check-out</p>
-                        <p className="text-lg font-medium">
-                          {cabin.checkIn} / {cabin.checkOut}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Home className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Minimum Stay</p>
-                        <p className="text-lg font-medium">{cabin.minimumStay}</p>
-                      </div>
-                    </div>
-
-                    <Button size="lg" className="w-full mt-8 rounded-full" asChild>
-                      <Link href="#booking">Check Availability</Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="sticky top-24">
+                <Suspense fallback={<div className="p-6 bg-muted/50 rounded-lg">Loading booking widget...</div>}>
+                  <CabinBookingWidget cabinSlug={cabin.slug} className="w-full" />
+                </Suspense>
+              </div>
             </div>
           </div>
         </div>

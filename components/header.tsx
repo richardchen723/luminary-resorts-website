@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Menu, X } from "lucide-react"
 import {
@@ -14,20 +15,37 @@ import {
 } from "@/components/ui/navigation-menu"
 
 export function Header() {
+  const pathname = usePathname()
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMobileStayMenuOpen, setIsMobileStayMenuOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  
+  // Determine Book Now link based on current page
+  // On cabin detail pages, link to #booking on same page
+  // Otherwise, link to /#cabins on home page
+  const isCabinDetailPage = pathname?.startsWith('/stay/')
+  const bookNowHref = isCabinDetailPage ? '#booking' : '/#cabins'
 
   useEffect(() => {
+    // Mark as mounted first
     setIsMounted(true)
+    
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20)
     }
-    // Set initial scroll state
-    handleScroll()
+    
+    // Defer initial scroll check to next tick to ensure hydration is complete
+    // This prevents hydration mismatch by ensuring state updates happen after React hydration
+    const timeoutId = setTimeout(() => {
+      handleScroll()
+    }, 0)
+    
     window.addEventListener("scroll", handleScroll)
-    return () => window.removeEventListener("scroll", handleScroll)
+    return () => {
+      clearTimeout(timeoutId)
+      window.removeEventListener("scroll", handleScroll)
+    }
   }, [])
 
   const cabins = [
@@ -45,14 +63,17 @@ export function Header() {
     { href: "/contact", label: "Contact" },
   ]
 
+  // Ensure consistent className between server and client
+  // Only apply scrolled styles after component has mounted to prevent hydration mismatch
+  // On server and initial client render, isMounted is false, so className is always consistent
+  const headerClassName = isMounted && isScrolled 
+    ? "bg-background/95 backdrop-blur-md shadow-sm" 
+    : "bg-background/90 backdrop-blur-sm"
+
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isMounted && isScrolled 
-            ? "bg-background/95 backdrop-blur-md shadow-sm" 
-            : "bg-background/90 backdrop-blur-sm"
-        }`}
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${headerClassName}`}
       >
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-20">
@@ -99,7 +120,7 @@ export function Header() {
             {/* Desktop CTA */}
             <div className="hidden lg:flex items-center gap-4">
               <Button asChild size="lg" className="rounded-full">
-                <Link href="#booking">Book Now</Link>
+                <Link href={bookNowHref}>Book Now</Link>
               </Button>
             </div>
 
@@ -155,7 +176,7 @@ export function Header() {
               </Link>
             ))}
             <Button asChild size="lg" className="w-full rounded-full mt-4">
-              <Link href="#booking" onClick={() => setIsMobileMenuOpen(false)}>
+              <Link href={bookNowHref} onClick={() => setIsMobileMenuOpen(false)}>
                 Book Now
               </Link>
             </Button>

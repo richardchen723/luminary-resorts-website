@@ -47,7 +47,7 @@ export default async function HomePage() {
       </section>
 
       {/* Cabins Preview */}
-      <section className="py-24 bg-card">
+      <section id="cabins" className="py-24 bg-card">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl mb-4 text-balance font-medium">Our Cabins</h2>

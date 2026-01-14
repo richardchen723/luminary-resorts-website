@@ -117,7 +117,7 @@ export default function AboutPage() {
               Explore Our Cabins
             </a>
             <a
-              href="#booking"
+              href="/#cabins"
               className="inline-flex items-center justify-center rounded-full border-2 border-primary-foreground text-primary-foreground px-8 py-4 text-lg font-medium hover:bg-primary-foreground/10 transition-colors"
             >
               Book Your Stay

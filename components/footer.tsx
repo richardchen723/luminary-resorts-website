@@ -72,7 +72,7 @@ export function Footer() {
                   Get in Touch
                 </Link>
               </li>
-              <li className="text-primary-foreground/80">Point Blank, Texas</li>
+              <li className="text-primary-foreground/80">Coldspring TX</li>
             </ul>
           </div>
         </div>
