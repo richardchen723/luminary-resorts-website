@@ -39,7 +39,7 @@ export function CabinImageGallery({ images, cabinName, showHero = false, heroTit
             {galleryImages.map((image, idx) => (
               <div
                 key={idx}
-                className={`${idx === 0 ? "md:col-span-2 md:row-span-2" : ""} aspect-square md:aspect-auto overflow-hidden rounded-lg cursor-pointer group relative`}
+                className={`${idx === 0 ? "md:col-span-2 md:row-span-2" : ""} aspect-square md:aspect-[4/3] overflow-hidden rounded-lg cursor-pointer group relative`}
                 onClick={() => handleImageClick(idx)}
               >
                 <Image

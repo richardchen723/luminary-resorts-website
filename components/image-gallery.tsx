@@ -81,8 +81,8 @@ export function ImageGallery({ images, initialIndex = 0, onClose }: ImageGallery
       )}
 
       {/* Image */}
-      <div className="relative max-w-7xl max-h-full flex items-center justify-center">
-        <div className="relative w-full h-full max-w-[90vw] max-h-[90vh]">
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="relative w-[90vw] h-[90vh]">
           <Image
             src={images[currentIndex]}
             alt={`Gallery image ${currentIndex + 1}`}
