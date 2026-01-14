@@ -13,33 +13,39 @@ interface StepGuestInfoProps {
 }
 
 export function StepGuestInfo({ guestInfo, onUpdate }: StepGuestInfoProps) {
-  const [formData, setFormData] = useState<Partial<HostawayGuestInfo>>({
-    firstName: guestInfo.firstName || "",
-    lastName: guestInfo.lastName || "",
-    email: guestInfo.email || "",
-    phone: guestInfo.phone || "",
-    countryCode: guestInfo.countryCode || "US",
-    address: guestInfo.address || "",
-    city: guestInfo.city || "",
-    state: guestInfo.state || "",
-    zipCode: guestInfo.zipCode || "",
-    specialRequests: guestInfo.specialRequests || "",
-  })
-
-  // Format phone number with country code
-  const formatPhoneNumber = (value: string, countryCode: string = "US"): string => {
-    // Remove all non-digit characters except leading +
-    const cleaned = value.replace(/[^\d+]/g, "")
-    
-    // If it starts with +, keep it (international format)
-    if (cleaned.startsWith("+")) {
-      return cleaned
-    }
-    
-    // Remove all non-digit characters for local formatting
+  // Format phone number for display (US format: (XXX) XXX-XXXX)
+  const formatPhoneDisplay = (value: string): string => {
+    // Remove all non-digit characters
     const digits = value.replace(/\D/g, "")
     
-    // Get country code prefix
+    // Limit to 10 digits for US/Canada format
+    const limitedDigits = digits.slice(0, 10)
+    
+    if (limitedDigits.length === 0) return ""
+    if (limitedDigits.length <= 3) return `(${limitedDigits}`
+    if (limitedDigits.length <= 6) {
+      return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3)}`
+    }
+    return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6)}`
+  }
+
+  // Extract phone digits from existing phone value (might have country code prefix)
+  const getInitialPhoneDisplay = (phone: string): string => {
+    if (!phone) return ""
+    // Remove country code prefix if present (e.g., +1, +44)
+    const digits = phone.replace(/\D/g, "")
+    // For US/Canada, take last 10 digits; for others, take all digits
+    const phoneDigits = digits.length > 10 && digits.startsWith("1") ? digits.slice(1) : digits.slice(-10)
+    return formatPhoneDisplay(phoneDigits)
+  }
+
+  // Get phone number digits only (for API submission)
+  const getPhoneDigits = (value: string): string => {
+    return value.replace(/\D/g, "").slice(0, 10)
+  }
+
+  // Format phone number with country code for API submission
+  const formatPhoneForAPI = (digits: string, countryCode: string): string => {
     const countryPrefixes: Record<string, string> = {
       US: "+1",
       CA: "+1",
@@ -90,40 +96,59 @@ export function StepGuestInfo({ guestInfo, onUpdate }: StepGuestInfoProps) {
     
     const prefix = countryPrefixes[countryCode] || "+1"
     
-    // For US/Canada, format as (XXX) XXX-XXXX (10 digits)
+    // For US/Canada, ensure 10 digits
     if (countryCode === "US" || countryCode === "CA") {
-      const limitedDigits = digits.slice(0, 10)
-      if (limitedDigits.length === 0) return ""
-      if (limitedDigits.length <= 3) return `${prefix} (${limitedDigits}`
-      if (limitedDigits.length <= 6) {
-        return `${prefix} (${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3)}`
-      }
-      return `${prefix} (${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6)}`
+      const phoneDigits = digits.slice(0, 10)
+      return phoneDigits ? `${prefix}${phoneDigits}` : ""
     }
     
-    // For other countries, just add prefix and keep digits
-    return digits ? `${prefix} ${digits}` : ""
+    // For other countries, add prefix with digits
+    return digits ? `${prefix}${digits}` : ""
+  }
+
+  const [formData, setFormData] = useState<Partial<HostawayGuestInfo>>({
+    firstName: guestInfo.firstName || "",
+    lastName: guestInfo.lastName || "",
+    email: guestInfo.email || "",
+    phone: getInitialPhoneDisplay(guestInfo.phone || ""),
+    countryCode: guestInfo.countryCode || "US",
+    address: guestInfo.address || "",
+    city: guestInfo.city || "",
+    state: guestInfo.state || "",
+    zipCode: guestInfo.zipCode || "",
+    specialRequests: guestInfo.specialRequests || "",
+  })
+
+  // Update parent with phone formatted for API (with country code)
+  const updateParent = (updates: Partial<HostawayGuestInfo>) => {
+    const phoneDigits = getPhoneDigits(updates.phone !== undefined ? updates.phone : formData.phone || "")
+    const countryCode = updates.countryCode || formData.countryCode || "US"
+    const phoneForAPI = formatPhoneForAPI(phoneDigits, countryCode)
+    
+    onUpdate({
+      ...updates,
+      phone: phoneForAPI, // Always send phone with country code to parent
+    })
   }
 
   const handleChange = (field: keyof HostawayGuestInfo, value: string) => {
     const updated = { ...formData, [field]: value }
     setFormData(updated)
-    onUpdate(updated)
+    updateParent(updated)
   }
 
   const handlePhoneChange = (value: string) => {
-    const formatted = formatPhoneNumber(value, formData.countryCode)
-    handleChange("phone", formatted)
+    // Format for display: (XXX) XXX-XXXX (no country code prefix)
+    const formatted = formatPhoneDisplay(value)
+    const updated = { ...formData, phone: formatted }
+    setFormData(updated)
+    updateParent(updated)
   }
   
   const handleCountryCodeChange = (value: string) => {
-    handleChange("countryCode", value)
-    // Reformat phone number with new country code
-    if (formData.phone) {
-      const digits = formData.phone.replace(/\D/g, "")
-      const formatted = formatPhoneNumber(digits, value)
-      handleChange("phone", formatted)
-    }
+    const updated = { ...formData, countryCode: value }
+    setFormData(updated)
+    updateParent(updated)
   }
 
   return (
@@ -232,7 +257,7 @@ export function StepGuestInfo({ guestInfo, onUpdate }: StepGuestInfoProps) {
                   onChange={(e) => handlePhoneChange(e.target.value)}
                   required
                   className="flex-1"
-                  placeholder={formData.countryCode === "US" ? "+1 (555) 123-4567" : "+XX XXX XXX XXXX"}
+                  placeholder={formData.countryCode === "US" || formData.countryCode === "CA" ? "(555) 123-4567" : "Phone number"}
                 />
               </div>
             </div>
