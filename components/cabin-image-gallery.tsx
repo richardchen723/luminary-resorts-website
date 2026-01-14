@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { ImageGallery } from "./image-gallery"
 
 interface CabinImageGalleryProps {
@@ -38,13 +39,15 @@ export function CabinImageGallery({ images, cabinName, showHero = false, heroTit
             {galleryImages.map((image, idx) => (
               <div
                 key={idx}
-                className={`${idx === 0 ? "md:col-span-2 md:row-span-2" : ""} aspect-square md:aspect-auto overflow-hidden rounded-lg cursor-pointer group`}
+                className={`${idx === 0 ? "md:col-span-2 md:row-span-2" : ""} aspect-square md:aspect-auto overflow-hidden rounded-lg cursor-pointer group relative`}
                 onClick={() => handleImageClick(idx)}
               >
-                <img
+                <Image
                   src={image || "/placeholder.svg"}
                   alt={`${cabinName} view ${idx + 2}`}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-700"
+                  sizes={idx === 0 ? "(max-width: 768px) 100vw, 66vw" : "(max-width: 768px) 100vw, 33vw"}
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
               </div>

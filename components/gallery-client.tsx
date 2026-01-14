@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { X, ChevronLeft, ChevronRight } from "lucide-react"
 import type { GalleryImage } from "@/lib/gallery"
@@ -86,7 +87,14 @@ export function GalleryClient({ bannerImage, images }: GalleryClientProps) {
       <section className="relative h-[70vh] flex items-center justify-center mt-20">
         <div className="absolute inset-0">
           {bannerImage ? (
-            <img src={bannerImage} alt="Luminary Resorts Gallery" className="w-full h-full object-cover" />
+            <Image
+              src={bannerImage}
+              alt="Luminary Resorts Gallery"
+              fill
+              className="object-cover"
+              sizes="100vw"
+              priority
+            />
           ) : (
             <div className="w-full h-full bg-muted" />
           )}
@@ -131,14 +139,15 @@ export function GalleryClient({ bannerImage, images }: GalleryClientProps) {
               {filteredImages.map((image, idx) => (
                 <div
                   key={idx}
-                  className="cursor-pointer group aspect-square overflow-hidden rounded-lg"
+                  className="cursor-pointer group aspect-square overflow-hidden rounded-lg relative"
                   onClick={() => handleImageClick(image.src)}
                 >
-                  <img
+                  <Image
                     src={image.src}
                     alt={`${image.cabinName} - ${image.category}`}
-                    className="w-full h-full object-cover hover:opacity-90 transition-opacity"
-                    loading="lazy"
+                    fill
+                    className="object-cover hover:opacity-90 transition-opacity"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   />
                 </div>
               ))}
@@ -149,14 +158,15 @@ export function GalleryClient({ bannerImage, images }: GalleryClientProps) {
               {filteredImages.map((image, idx) => (
                 <div
                   key={idx}
-                  className="cursor-pointer group aspect-square overflow-hidden rounded-lg"
+                  className="cursor-pointer group aspect-square overflow-hidden rounded-lg relative"
                   onClick={() => handleImageClick(image.src)}
                 >
-                  <img
+                  <Image
                     src={image.src}
                     alt={`${image.cabinName} - ${image.category}`}
-                    className="w-full h-full object-cover hover:opacity-90 transition-opacity"
-                    loading="lazy"
+                    fill
+                    className="object-cover hover:opacity-90 transition-opacity"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   />
                 </div>
               ))}
@@ -213,11 +223,16 @@ export function GalleryClient({ bannerImage, images }: GalleryClientProps) {
 
           {/* Image */}
           <div className="relative w-full h-full max-w-screen-xl max-h-screen-xl flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-            <img
-              src={selectedImage}
-              alt={`${filteredImages[currentIndex]?.cabinName} - ${filteredImages[currentIndex]?.category}`}
-              className="max-w-full max-h-full object-contain"
-            />
+            <div className="relative w-full h-full max-w-[90vw] max-h-[90vh]">
+              <Image
+                src={selectedImage}
+                alt={`${filteredImages[currentIndex]?.cabinName} - ${filteredImages[currentIndex]?.category}`}
+                fill
+                className="object-contain"
+                sizes="90vw"
+                priority
+              />
+            </div>
           </div>
 
           {/* Image counter */}

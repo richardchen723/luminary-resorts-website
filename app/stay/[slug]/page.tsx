@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import Image from "next/image"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -130,10 +131,12 @@ export default async function CabinDetailPage({ params }: PageProps) {
                   className="overflow-hidden group cursor-pointer hover:shadow-xl transition-shadow bg-background border-border/50"
                 >
                   <div className="relative h-64 overflow-hidden">
-                    <img
+                    <Image
                       src={otherCabin.images[0] || "/placeholder.svg"}
                       alt={otherCabin.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-700"
+                      sizes="(max-width: 768px) 100vw, 33vw"
                     />
                   </div>
                   <CardContent className="p-6">

@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -46,10 +47,12 @@ export function AvailabilityResults({
             <Card key={cabin.slug} className="overflow-hidden hover:shadow-lg transition-shadow">
               {cabin.image && (
                 <div className="aspect-video relative overflow-hidden">
-                  <img
+                  <Image
                     src={cabin.image}
                     alt={cabin.name}
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 50vw"
                   />
                 </div>
               )}
@@ -116,10 +119,12 @@ export function AvailabilityResults({
               >
                 {cabin.image && (
                   <div className="aspect-video relative overflow-hidden">
-                    <img
+                    <Image
                       src={cabin.image}
                       alt={cabin.name}
-                      className="w-full h-full object-cover grayscale"
+                      fill
+                      className="object-cover grayscale"
+                      sizes="(max-width: 768px) 100vw, 50vw"
                     />
                   </div>
                 )}

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { ImageGallery } from "./image-gallery"
 
 interface CabinHeroProps {
@@ -21,10 +22,13 @@ export function CabinHero({ image, cabinName, cabinId, subtitle, allImages }: Ca
         onClick={() => setIsGalleryOpen(true)}
       >
         <div className="absolute inset-0">
-          <img
+          <Image
             src={image || "/placeholder.svg"}
             alt={cabinName}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-700"
+            sizes="100vw"
+            priority
           />
           <div className="absolute inset-0 bg-foreground/40 group-hover:bg-foreground/30 transition-colors" />
         </div>

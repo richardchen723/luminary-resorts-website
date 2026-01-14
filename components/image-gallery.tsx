@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { X, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -81,12 +82,17 @@ export function ImageGallery({ images, initialIndex = 0, onClose }: ImageGallery
 
       {/* Image */}
       <div className="relative max-w-7xl max-h-full flex items-center justify-center">
-        <img
-          src={images[currentIndex]}
-          alt={`Gallery image ${currentIndex + 1}`}
-          className="max-w-full max-h-[90vh] object-contain"
-          onClick={(e) => e.stopPropagation()}
-        />
+        <div className="relative w-full h-full max-w-[90vw] max-h-[90vh]">
+          <Image
+            src={images[currentIndex]}
+            alt={`Gallery image ${currentIndex + 1}`}
+            fill
+            className="object-contain"
+            sizes="90vw"
+            priority
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
       </div>
 
       {/* Next Button */}
@@ -119,14 +125,16 @@ export function ImageGallery({ images, initialIndex = 0, onClose }: ImageGallery
                 e.stopPropagation()
                 setCurrentIndex(idx)
               }}
-              className={`flex-shrink-0 w-16 h-16 rounded overflow-hidden border-2 transition-all ${
+              className={`flex-shrink-0 w-16 h-16 rounded overflow-hidden border-2 transition-all relative ${
                 idx === currentIndex ? "border-white" : "border-transparent opacity-60 hover:opacity-100"
               }`}
             >
-              <img
+              <Image
                 src={image}
                 alt={`Thumbnail ${idx + 1}`}
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
+                sizes="64px"
               />
             </button>
           ))}

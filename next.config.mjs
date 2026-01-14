@@ -4,7 +4,8 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true,
+    // Vercel Image Optimization enabled - images will be cached on Vercel's CDN
+    // unoptimized: true, // Removed to enable Vercel's image optimization and CDN caching
     remotePatterns: [
       {
         protocol: "https",

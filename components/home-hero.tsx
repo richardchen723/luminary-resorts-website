@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
@@ -36,13 +37,16 @@ export function HomeHero() {
     <section className="relative h-screen flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0">
         {HERO_IMAGES.map((image, index) => (
-          <img
+          <Image
             key={image.src}
             src={image.src}
             alt={image.alt}
-            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
+            fill
+            className={`object-cover transition-opacity duration-1000 ${
               index === currentIndex ? "opacity-100" : "opacity-0"
             }`}
+            sizes="100vw"
+            priority={index === 0}
           />
         ))}
         <div className="absolute inset-0 atmospheric-overlay" />

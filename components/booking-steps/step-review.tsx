@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { Card } from "@/components/ui/card"
 import { Calendar, Users, DollarSign, Home } from "lucide-react"
 import type { Cabin } from "@/lib/cabins"
@@ -42,11 +43,13 @@ export function StepReview({
       <Card className="p-6">
         <div className="flex gap-6">
           {cabin.images?.[0] && (
-            <div className="w-32 h-32 rounded-lg overflow-hidden flex-shrink-0">
-              <img
+            <div className="w-32 h-32 rounded-lg overflow-hidden flex-shrink-0 relative">
+              <Image
                 src={cabin.images[0]}
                 alt={cabin.name}
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
+                sizes="128px"
               />
             </div>
           )}

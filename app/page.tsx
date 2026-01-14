@@ -1,3 +1,4 @@
+import Image from "next/image"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -67,10 +68,13 @@ export default async function HomePage() {
                   <div className="relative aspect-square overflow-hidden rounded-xl bg-background border border-border/50 shadow-sm hover:shadow-xl transition-all duration-500">
                     {/* Image */}
                     <div className="absolute inset-0">
-                      <img
+                      <Image
                         src={coverImage}
                         alt={cabin.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-700"
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        priority
                       />
                       {/* Gradient overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-foreground/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
