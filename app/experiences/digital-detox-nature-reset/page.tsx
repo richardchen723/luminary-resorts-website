@@ -62,11 +62,21 @@ export default async function DigitalDetoxPage() {
       <JsonLd data={faqSchema} />
       <Header />
 
-      <section className="relative h-[70vh] flex items-center justify-center mt-20">
-        <div className="absolute inset-0 bg-muted/50" />
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+      <section className="relative h-[70vh] flex items-center justify-center mt-20 overflow-hidden">
+        <div className="absolute inset-0">
+          <Image
+            src="https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/7dd4c75a-f44c-4b7d-8b1a-8026666dbafd.jpeg?aki_policy=xx_large"
+            alt="Digital detox cabin"
+            fill
+            className="object-cover"
+            sizes="100vw"
+            priority
+          />
+          <div className="absolute inset-0 bg-foreground/40" />
+        </div>
+        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto text-white">
           <h1 className="font-serif text-5xl md:text-6xl mb-6">Digital Detox: Unplug and Reconnect</h1>
-          <p className="text-xl md:text-2xl text-muted-foreground mb-8 leading-relaxed">
+          <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed">
             Disconnect from the noise and reconnect with yourself, your partner, and nature. A luxury cabin retreat designed for mindfulness, healing, and presence.
           </p>
           <Button asChild size="lg" className="rounded-full">

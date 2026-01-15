@@ -62,11 +62,21 @@ export default async function AnniversaryWeekendPage() {
       <JsonLd data={faqSchema} />
       <Header />
 
-      <section className="relative h-[70vh] flex items-center justify-center mt-20">
-        <div className="absolute inset-0 bg-muted/50" />
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+      <section className="relative h-[70vh] flex items-center justify-center mt-20 overflow-hidden">
+        <div className="absolute inset-0">
+          <Image
+            src="https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-2VoxPw1ogFm--GFueKZyM--b9BvwcrnFQxchXfq28rNto-69641991b0aab"
+            alt="Anniversary weekend cabin"
+            fill
+            className="object-cover"
+            sizes="100vw"
+            priority
+          />
+          <div className="absolute inset-0 bg-foreground/40" />
+        </div>
+        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto text-white">
           <h1 className="font-serif text-5xl md:text-6xl mb-6">Anniversary Weekend Getaway for Couples</h1>
-          <p className="text-xl md:text-2xl text-muted-foreground mb-8 leading-relaxed">
+          <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed">
             Celebrate your love in a luxury cabin retreat. Private pools, romantic settings, and complete privacy—the perfect anniversary celebration near Houston.
           </p>
           <Button asChild size="lg" className="rounded-full">
