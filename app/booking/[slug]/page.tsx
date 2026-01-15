@@ -16,6 +16,7 @@ import { getListingIdBySlug } from "@/lib/listing-map"
 import type { Cabin } from "@/lib/cabins"
 import { eachDayOfInterval, parseISO, format } from "date-fns"
 import { roundToTwoDecimals } from "@/lib/utils"
+import { trackReservationConfirmed } from "@/lib/analytics"
 type BookingStep = "review" | "guest" | "payment" | "confirmation"
 
 export default function BookingPage() {
@@ -515,6 +516,8 @@ export default function BookingPage() {
           bookingId: data.booking.id,
         })
         setCurrentStep("confirmation")
+        // Track reservation confirmation
+        trackReservationConfirmed(slug, data.booking.id)
       } else {
         throw new Error("Booking confirmation failed")
       }

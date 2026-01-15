@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Quicksand, Dancing_Script } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { GA4 } from "@/components/ga4"
 import "./globals.css"
 
 const quicksand = Quicksand({
@@ -55,6 +56,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${quicksand.variable} ${dancingScript.variable} font-sans antialiased`}>
+        <GA4 />
         {children}
         <Analytics />
       </body>

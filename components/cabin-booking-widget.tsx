@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils"
 import { roundToTwoDecimals } from "@/lib/utils"
 import { DayButton } from "react-day-picker"
 import { InquiryModal } from "@/components/inquiry-modal"
+import { trackSelectDates, trackViewPricing, trackStartCheckout } from "@/lib/analytics"
 
 interface CabinBookingWidgetProps {
   cabinSlug: string
@@ -105,10 +106,12 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
   useEffect(() => {
     if (checkIn && checkOut && checkIn < checkOut) {
       loadPricing()
+      // Track date selection
+      trackSelectDates(cabinSlug, checkIn)
     } else {
       setPricing(null)
     }
-  }, [checkIn, checkOut, guests, pets, listingId, calendarData])
+  }, [checkIn, checkOut, guests, pets, listingId, calendarData, cabinSlug])
 
   const loadPricing = async () => {
     if (!listingId) {
@@ -177,7 +180,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         const total = roundToTwoDecimals(subtotalFromCalendar + cleaningFee + tax + channelFee + petFee)
         const nightlyRate = nights > 0 ? roundToTwoDecimals(subtotalFromCalendar / nights) : 0
         
-        setPricing({
+        const pricingData = {
           nightlyRate,
           nights,
           subtotal: roundToTwoDecimals(subtotalFromCalendar),
@@ -188,7 +191,10 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
           total,
           currency: currencyFromCalendar,
           available: true,
-        })
+        }
+        setPricing(pricingData)
+        // Track pricing view
+        trackViewPricing(cabinSlug, nights)
         setIsLoadingPricing(false)
         return
       }
@@ -244,7 +250,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                 const channelFee = roundToTwoDecimals(subtotal * 0.02) // ~2% channel fee
                 const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee)
 
-                setPricing({
+                const pricingData = {
                   nightlyRate: roundToTwoDecimals(basePrice),
                   nights,
                   subtotal,
@@ -254,7 +260,10 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                   total,
                   currency,
                   available: true,
-                })
+                }
+                setPricing(pricingData)
+                // Track pricing view
+                trackViewPricing(cabinSlug, nights)
                 return
               }
             }
@@ -306,7 +315,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                 const petFee = roundToTwoDecimals(parseInt(pets, 10) > 0 ? 50 : 0) // $50 flat fee
                 const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee + petFee)
 
-                setPricing({
+                const pricingData = {
                   nightlyRate: roundToTwoDecimals(basePrice),
                   nights,
                   subtotal,
@@ -317,7 +326,9 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                   total,
                   currency,
                   available: true,
-                })
+                }
+                setPricing(pricingData)
+                trackViewPricing(cabinSlug, nights)
                 return
               }
             }
@@ -333,7 +344,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         const channelFee = roundToTwoDecimals(subtotal * 0.02)
         const petFee = roundToTwoDecimals(parseInt(pets, 10) > 0 ? 50 : 0) // $50 flat fee
         const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee + petFee)
-        setPricing({
+        const pricingData = {
           nightlyRate: roundToTwoDecimals(basePrice),
           nights,
           subtotal,
@@ -344,7 +355,9 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
           total,
           currency: "USD",
           available: true,
-        })
+        }
+        setPricing(pricingData)
+        trackViewPricing(cabinSlug, nights)
         return
       }
       
@@ -360,7 +373,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         const calculatedTotal = roundToTwoDecimals(breakdown.subtotal + cleaningFee + tax + channelFee + petFee)
         const total = breakdown.total ? roundToTwoDecimals(breakdown.total + petFee) : calculatedTotal
 
-        setPricing({
+        const pricingData = {
           nightlyRate: breakdown.nightlyRate ? roundToTwoDecimals(breakdown.nightlyRate) : (breakdown.nights > 0 ? roundToTwoDecimals(breakdown.subtotal / breakdown.nights) : 0),
           nights: breakdown.nights || nights,
           subtotal: roundToTwoDecimals(breakdown.subtotal),
@@ -371,7 +384,9 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
           total,
           currency: breakdown.currency || "USD",
           available: true,
-        })
+        }
+        setPricing(pricingData)
+        trackViewPricing(cabinSlug, pricingData.nights)
       } else if (pricingData.available) {
         // API says available but no breakdown - use fallback calculation
         // This shouldn't happen, but handle gracefully
@@ -383,7 +398,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         const petFee = roundToTwoDecimals(parseInt(pets, 10) > 0 ? 50 : 0) // $50 flat fee
         const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee + petFee)
 
-        setPricing({
+        const pricingData = {
           nightlyRate: roundToTwoDecimals(basePrice),
           nights,
           subtotal,
@@ -394,7 +409,9 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
           total,
           currency: "USD",
           available: true,
-        })
+        }
+        setPricing(pricingData)
+        trackViewPricing(cabinSlug, nights)
       } else {
         // available: false - use hardcoded base price as last resort
         const basePrice = 200
@@ -404,7 +421,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         const channelFee = roundToTwoDecimals(subtotal * 0.02)
         const petFee = roundToTwoDecimals(parseInt(pets, 10) > 0 ? 50 : 0) // $50 flat fee
         const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee + petFee)
-        setPricing({
+        const pricingData = {
           nightlyRate: roundToTwoDecimals(basePrice),
           nights,
           subtotal,
@@ -415,7 +432,9 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
           total,
           currency: "USD",
           available: true,
-        })
+        }
+        setPricing(pricingData)
+        trackViewPricing(cabinSlug, nights)
       }
     } catch (err: any) {
       console.error("Error loading pricing:", err)
@@ -452,6 +471,9 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     } catch (e) {
       console.warn("Failed to store pricing in sessionStorage:", e)
     }
+
+    // Track checkout start
+    trackStartCheckout(cabinSlug, pricing.total)
 
     // Navigate to booking page with pre-filled data
     const params = new URLSearchParams({

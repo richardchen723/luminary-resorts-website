@@ -1,7 +1,19 @@
+// Declare gtag function for TypeScript
+declare global {
+  interface Window {
+    gtag?: (
+      command: 'config' | 'event' | 'js' | 'set',
+      targetId: string | Date,
+      config?: Record<string, any>
+    ) => void
+    dataLayer?: any[]
+  }
+}
+
 // Track SEO-relevant events for GA4
 export function trackSEOEvent(eventName: string, params?: Record<string, any>) {
-  if (typeof window !== 'undefined' && (window as any).gtag) {
-    ;(window as any).gtag('event', eventName, params)
+  if (typeof window !== 'undefined' && window.gtag) {
+    window.gtag('event', eventName, params)
   }
 }
 

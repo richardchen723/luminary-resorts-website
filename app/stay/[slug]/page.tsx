@@ -18,6 +18,7 @@ import { JsonLd } from "@/components/json-ld"
 import { generateMetadata as generateSEOMetadata, getCabinSEO } from "@/lib/seo"
 import type { Metadata } from "next"
 import { WhyBookDirect } from "@/components/why-book-direct"
+import { PageViewTracker } from "@/components/page-view-tracker"
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -104,6 +105,7 @@ export default async function CabinDetailPage({ params }: PageProps) {
   return (
     <div className="min-h-screen">
       <JsonLd data={hotelSchema} />
+      <PageViewTracker cabinSlug={slug} />
       <Header />
 
       {/* Hero Section */}
