@@ -12,6 +12,7 @@ export function GA4({ measurementId }: GA4Props) {
 
   return (
     <>
+      {/* Google tag (gtag.js) */}
       <Script
         async
         src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
