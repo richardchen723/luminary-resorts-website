@@ -10,6 +10,7 @@ import { getListingIdBySlug } from "@/lib/listing-map"
 import { roundToTwoDecimals } from "@/lib/utils"
 import { sendBookingConfirmationEmail } from "@/lib/email"
 import { getCabinBySlugSync } from "@/lib/cabins"
+import { addMessageToConversation } from "@/lib/hostaway"
 
 interface ConfirmPaymentRequest {
   paymentIntentId: string
@@ -27,6 +28,7 @@ interface ConfirmPaymentRequest {
     cleaningFee: number
     tax: number
     channelFee: number
+    petFee: number
     total: number
     currency: string
   }
@@ -40,6 +42,7 @@ interface ConfirmPaymentRequest {
     state?: string
     zipCode?: string
     country?: string
+    specialRequests?: string
   }
 }
 
@@ -109,6 +112,7 @@ export async function POST(request: Request) {
         cleaningFee: roundToTwoDecimals(pricing.cleaningFee),
         tax: roundToTwoDecimals(pricing.tax),
         channelFee: roundToTwoDecimals(pricing.channelFee),
+        petFee: roundToTwoDecimals(pricing.petFee || 0),
       }
     } else {
       // Fallback: pricing not provided (should not happen in normal flow)
@@ -170,6 +174,23 @@ export async function POST(request: Request) {
         (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)
       )
       
+      // Post special requests to Hostaway conversation if provided
+      if (guestInfo.specialRequests && guestInfo.specialRequests.trim()) {
+        try {
+          if (hostawayReservationId > 0) {
+            await addMessageToConversation(
+              hostawayReservationId,
+              `Special Request: ${guestInfo.specialRequests.trim()}`,
+              1 // isIncoming: 1 = from guest
+            )
+            console.log(`✅ Special request posted to Hostaway conversation for reservation ${hostawayReservationId}`)
+          }
+        } catch (messageError: any) {
+          // Log error but don't fail the booking
+          console.warn(`⚠️  Failed to post special request to Hostaway conversation: ${messageError.message}`)
+        }
+      }
+
       // Send confirmation email (don't await - send in background)
       sendBookingConfirmationEmail({
         guestName: `${guestInfo.firstName} ${guestInfo.lastName}`,

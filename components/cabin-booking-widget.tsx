@@ -70,6 +70,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     cleaningFee: number
     tax: number
     channelFee: number
+    petFee: number
     total: number
     currency: string
     available: boolean
@@ -107,7 +108,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     } else {
       setPricing(null)
     }
-  }, [checkIn, checkOut, guests, listingId, calendarData])
+  }, [checkIn, checkOut, guests, pets, listingId, calendarData])
 
   const loadPricing = async () => {
     if (!listingId) {
@@ -172,7 +173,8 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         const cleaningFee = 100
         const tax = roundToTwoDecimals(subtotalFromCalendar * 0.12)
         const channelFee = roundToTwoDecimals(subtotalFromCalendar * 0.02)
-        const total = roundToTwoDecimals(subtotalFromCalendar + cleaningFee + tax + channelFee)
+        const petFee = roundToTwoDecimals(parseInt(pets, 10) > 0 ? 50 : 0) // $50 flat fee
+        const total = roundToTwoDecimals(subtotalFromCalendar + cleaningFee + tax + channelFee + petFee)
         const nightlyRate = nights > 0 ? roundToTwoDecimals(subtotalFromCalendar / nights) : 0
         
         setPricing({
@@ -182,6 +184,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
           cleaningFee,
           tax,
           channelFee,
+          petFee,
           total,
           currency: currencyFromCalendar,
           available: true,
@@ -300,7 +303,8 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                 const cleaningFee = 100
                 const tax = roundToTwoDecimals(subtotal * 0.12)
                 const channelFee = roundToTwoDecimals(subtotal * 0.02)
-                const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee)
+                const petFee = roundToTwoDecimals(parseInt(pets, 10) > 0 ? 50 : 0) // $50 flat fee
+                const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee + petFee)
 
                 setPricing({
                   nightlyRate: roundToTwoDecimals(basePrice),
@@ -309,6 +313,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                   cleaningFee,
                   tax,
                   channelFee,
+                  petFee,
                   total,
                   currency,
                   available: true,
@@ -326,7 +331,8 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         const cleaningFee = 100
         const tax = roundToTwoDecimals(subtotal * 0.12)
         const channelFee = roundToTwoDecimals(subtotal * 0.02)
-        const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee)
+        const petFee = roundToTwoDecimals(parseInt(pets, 10) > 0 ? 50 : 0) // $50 flat fee
+        const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee + petFee)
         setPricing({
           nightlyRate: roundToTwoDecimals(basePrice),
           nights,
@@ -334,6 +340,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
           cleaningFee,
           tax,
           channelFee,
+          petFee,
           total,
           currency: "USD",
           available: true,
@@ -347,10 +354,11 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         const cleaningFee = breakdown.fees || 100
         const tax = breakdown.taxes ? roundToTwoDecimals(breakdown.taxes) : roundToTwoDecimals(breakdown.subtotal * 0.12)
         const channelFee = roundToTwoDecimals(breakdown.subtotal * 0.02)
+        const petFee = roundToTwoDecimals(parseInt(pets, 10) > 0 ? 50 : 0) // $50 flat fee
         
         // If API provides total, use it; otherwise calculate
-        const calculatedTotal = roundToTwoDecimals(breakdown.subtotal + cleaningFee + tax + channelFee)
-        const total = breakdown.total ? roundToTwoDecimals(breakdown.total) : calculatedTotal
+        const calculatedTotal = roundToTwoDecimals(breakdown.subtotal + cleaningFee + tax + channelFee + petFee)
+        const total = breakdown.total ? roundToTwoDecimals(breakdown.total + petFee) : calculatedTotal
 
         setPricing({
           nightlyRate: breakdown.nightlyRate ? roundToTwoDecimals(breakdown.nightlyRate) : (breakdown.nights > 0 ? roundToTwoDecimals(breakdown.subtotal / breakdown.nights) : 0),
@@ -359,6 +367,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
           cleaningFee,
           tax,
           channelFee,
+          petFee,
           total,
           currency: breakdown.currency || "USD",
           available: true,
@@ -371,7 +380,8 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         const cleaningFee = 100
         const tax = roundToTwoDecimals(subtotal * 0.12)
         const channelFee = roundToTwoDecimals(subtotal * 0.02)
-        const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee)
+        const petFee = roundToTwoDecimals(parseInt(pets, 10) > 0 ? 50 : 0) // $50 flat fee
+        const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee + petFee)
 
         setPricing({
           nightlyRate: roundToTwoDecimals(basePrice),
@@ -380,6 +390,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
           cleaningFee,
           tax,
           channelFee,
+          petFee,
           total,
           currency: "USD",
           available: true,
@@ -391,7 +402,8 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         const cleaningFee = 100
         const tax = roundToTwoDecimals(subtotal * 0.12)
         const channelFee = roundToTwoDecimals(subtotal * 0.02)
-        const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee)
+        const petFee = roundToTwoDecimals(parseInt(pets, 10) > 0 ? 50 : 0) // $50 flat fee
+        const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee + petFee)
         setPricing({
           nightlyRate: roundToTwoDecimals(basePrice),
           nights,
@@ -399,6 +411,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
           cleaningFee,
           tax,
           channelFee,
+          petFee,
           total,
           currency: "USD",
           available: true,
@@ -981,6 +994,16 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                     <span className="font-medium">
                       {pricing.currency === "USD" ? "$" : pricing.currency}
                       {pricing.channelFee.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
+                {parseInt(pets, 10) > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Pet Fee</span>
+                    <span className="font-medium">
+                      {pricing.currency === "USD" ? "$" : pricing.currency}
+                      {(pricing.petFee || 0).toFixed(2)}
                     </span>
                   </div>
                 )}

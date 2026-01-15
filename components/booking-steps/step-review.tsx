@@ -19,6 +19,7 @@ interface StepReviewProps {
     cleaningFee: number
     tax: number
     channelFee: number
+    petFee: number
     total: number
     currency: string
   } | null
@@ -139,6 +140,16 @@ export function StepReview({
                 <span className="font-medium">
                   {pricing.currency === "USD" ? "$" : pricing.currency}
                   {pricing.channelFee.toFixed(2)}
+                </span>
+              </div>
+            )}
+
+            {pets > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Pet Fee</span>
+                <span className="font-medium">
+                  {pricing.currency === "USD" ? "$" : pricing.currency}
+                  {(pricing.petFee || 0).toFixed(2)}
                 </span>
               </div>
             )}

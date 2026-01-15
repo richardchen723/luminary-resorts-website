@@ -41,6 +41,7 @@ export default function BookingPage() {
     cleaningFee: number
     tax: number
     channelFee: number
+    petFee: number
     total: number
     currency: string
   } | null>(null)
@@ -114,6 +115,9 @@ export default function BookingPage() {
           if (parsed.checkIn === checkIn && parsed.checkOut === checkOut && parsed.guests === guests && parsed.pets === pets && parsed.infants === infants) {
             // Use cached pricing if it's less than 10 minutes old
             if (Date.now() - parsed.timestamp < 10 * 60 * 1000) {
+              // Recalculate pet fee in case pets changed
+              const petFee = roundToTwoDecimals(pets > 0 ? 50 : 0) // $50 flat fee
+              const totalWithPetFee = roundToTwoDecimals((parsed.total - (parsed.petFee || 0)) + petFee)
               setPricing({
                 nightlyRate: parsed.nightlyRate,
                 nights: parsed.nights,
@@ -121,7 +125,8 @@ export default function BookingPage() {
                 cleaningFee: parsed.cleaningFee,
                 tax: parsed.tax,
                 channelFee: parsed.channelFee,
-                total: parsed.total,
+                petFee,
+                total: totalWithPetFee,
                 currency: parsed.currency,
               })
               return
@@ -183,7 +188,8 @@ export default function BookingPage() {
           const cleaningFee = 100
           const tax = roundToTwoDecimals(subtotalFromCalendar * 0.12)
           const channelFee = roundToTwoDecimals(subtotalFromCalendar * 0.02)
-          const total = roundToTwoDecimals(subtotalFromCalendar + cleaningFee + tax + channelFee)
+          const petFee = roundToTwoDecimals(pets > 0 ? 50 : 0) // $50 flat fee
+          const total = roundToTwoDecimals(subtotalFromCalendar + cleaningFee + tax + channelFee + petFee)
           const nightlyRate = nights > 0 ? roundToTwoDecimals(subtotalFromCalendar / nights) : 0
           
           setPricing({
@@ -193,6 +199,7 @@ export default function BookingPage() {
             cleaningFee,
             tax,
             channelFee,
+            petFee,
             total,
             currency: currencyFromCalendar,
           })
@@ -233,8 +240,9 @@ export default function BookingPage() {
                 const cleaningFee = breakdown.fees || 100
                 const tax = breakdown.taxes ? roundToTwoDecimals(breakdown.taxes) : roundToTwoDecimals(breakdown.subtotal * 0.12)
                 const channelFee = roundToTwoDecimals(breakdown.subtotal * 0.02)
-                const calculatedTotal = roundToTwoDecimals(breakdown.subtotal + cleaningFee + tax + channelFee)
-                const total = breakdown.total ? roundToTwoDecimals(breakdown.total) : calculatedTotal
+                const petFee = roundToTwoDecimals(pets > 0 ? 50 : 0) // $50 flat fee
+                const calculatedTotal = roundToTwoDecimals(breakdown.subtotal + cleaningFee + tax + channelFee + petFee)
+                const total = breakdown.total ? roundToTwoDecimals(breakdown.total + petFee) : calculatedTotal
                 
                 setPricing({
                   nightlyRate: breakdown.nightlyRate ? roundToTwoDecimals(breakdown.nightlyRate) : (breakdown.nights > 0 ? roundToTwoDecimals(breakdown.subtotal / breakdown.nights) : 0),
@@ -243,6 +251,7 @@ export default function BookingPage() {
                   cleaningFee,
                   tax,
                   channelFee,
+                  petFee,
                   total,
                   currency: breakdown.currency || "USD",
                 })
@@ -254,7 +263,8 @@ export default function BookingPage() {
                 const cleaningFee = breakdown.fees || 100
                 const tax = breakdown.taxes ? roundToTwoDecimals(breakdown.taxes) : roundToTwoDecimals(breakdown.subtotal * 0.12)
                 const channelFee = roundToTwoDecimals(breakdown.subtotal * 0.02)
-                const total = roundToTwoDecimals(breakdown.subtotal + cleaningFee + tax + channelFee)
+                const petFee = roundToTwoDecimals(pets > 0 ? 50 : 0) // $50 flat fee
+                const total = roundToTwoDecimals(breakdown.subtotal + cleaningFee + tax + channelFee + petFee)
                 
                 setPricing({
                   nightlyRate: breakdown.nightlyRate ? roundToTwoDecimals(breakdown.nightlyRate) : (breakdown.nights > 0 ? roundToTwoDecimals(breakdown.subtotal / breakdown.nights) : 0),
@@ -263,6 +273,7 @@ export default function BookingPage() {
                   cleaningFee,
                   tax,
                   channelFee,
+                  petFee,
                   total,
                   currency: breakdown.currency || "USD",
                 })
@@ -301,7 +312,8 @@ export default function BookingPage() {
                 const cleaningFee = 100
                 const tax = roundToTwoDecimals(subtotal * 0.12)
                 const channelFee = roundToTwoDecimals(subtotal * 0.02)
-                const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee)
+                const petFee = roundToTwoDecimals(pets > 0 ? 50 : 0) // $50 flat fee
+                const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee + petFee)
                 
                 setPricing({
                   nightlyRate: roundToTwoDecimals(basePrice),
@@ -310,6 +322,7 @@ export default function BookingPage() {
                   cleaningFee,
                   tax,
                   channelFee,
+                  petFee,
                   total,
                   currency: listingData.currency || "USD",
                 })
@@ -327,7 +340,8 @@ export default function BookingPage() {
           const cleaningFee = 100
           const tax = roundToTwoDecimals(subtotal * 0.12)
           const channelFee = roundToTwoDecimals(subtotal * 0.02)
-          const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee)
+          const petFee = roundToTwoDecimals(pets > 0 ? 50 : 0) // $50 flat fee
+          const total = roundToTwoDecimals(subtotal + cleaningFee + tax + channelFee + petFee)
           
           setPricing({
             nightlyRate: roundToTwoDecimals(basePrice),
@@ -336,6 +350,7 @@ export default function BookingPage() {
             cleaningFee,
             tax,
             channelFee,
+            petFee,
             total,
             currency: "USD",
           })
@@ -354,7 +369,7 @@ export default function BookingPage() {
     return () => {
       abortController.abort()
     }
-  }, [slug, checkIn, checkOut, guests, calendarData])
+  }, [slug, checkIn, checkOut, guests, pets, calendarData])
 
   const handleNext = () => {
     if (currentStep === "review") {
@@ -482,6 +497,7 @@ export default function BookingPage() {
             state: guestInfo.state,
             zipCode: guestInfo.zipCode,
             country: guestInfo.countryCode || "US",
+            specialRequests: guestInfo.specialRequests,
           },
         }),
       })
@@ -605,6 +621,10 @@ export default function BookingPage() {
               clientSecret={clientSecret}
               onPaymentSuccess={handlePaymentSuccess}
               isLoading={isSubmitting}
+              pricing={pricing ? {
+                total: pricing.total,
+                currency: pricing.currency,
+              } : null}
             />
           )}
 

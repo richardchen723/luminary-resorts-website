@@ -15,9 +15,13 @@ interface StepPaymentProps {
   clientSecret: string | null
   onPaymentSuccess: (paymentIntentId: string) => void
   isLoading?: boolean
+  pricing?: {
+    total: number
+    currency: string
+  } | null
 }
 
-function PaymentForm({ onPaymentSuccess, isLoading: externalLoading }: Omit<StepPaymentProps, 'paymentIntentId' | 'clientSecret'> & { clientSecret: string }) {
+function PaymentForm({ onPaymentSuccess, isLoading: externalLoading, pricing }: Omit<StepPaymentProps, 'paymentIntentId' | 'clientSecret'> & { clientSecret: string }) {
   const stripe = useStripe()
   const elements = useElements()
   const [isProcessing, setIsProcessing] = useState(false)
@@ -77,6 +81,18 @@ function PaymentForm({ onPaymentSuccess, isLoading: externalLoading }: Omit<Step
         <p className="text-muted-foreground">Your payment information is secure and encrypted.</p>
       </div>
 
+      {pricing && pricing.total > 0 && (
+        <Card className="p-6">
+          <div className="flex justify-between items-center">
+            <span className="text-lg font-semibold">Total Amount</span>
+            <span className="text-2xl font-bold text-primary">
+              {pricing.currency === "USD" ? "$" : pricing.currency}
+              {pricing.total.toFixed(2)}
+            </span>
+          </div>
+        </Card>
+      )}
+
       <Card className="p-6">
         <div className="space-y-4">
           <PaymentElement
@@ -101,21 +117,32 @@ function PaymentForm({ onPaymentSuccess, isLoading: externalLoading }: Omit<Step
   )
 }
 
-export function StepPayment({ paymentIntentId, clientSecret, onPaymentSuccess, isLoading }: StepPaymentProps) {
+export function StepPayment({ paymentIntentId, clientSecret, onPaymentSuccess, isLoading, pricing }: StepPaymentProps) {
   if (!clientSecret) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-semibold mb-4">Payment Information</h2>
-          <p className="text-muted-foreground">Loading payment form...</p>
-        </div>
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-semibold mb-4">Payment Information</h2>
+        <p className="text-muted-foreground">Loading payment form...</p>
+      </div>
+      {pricing && pricing.total > 0 && (
         <Card className="p-6">
-          <div className="flex items-center justify-center p-8">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <div className="flex justify-between items-center">
+            <span className="text-lg font-semibold">Total Amount</span>
+            <span className="text-2xl font-bold text-primary">
+              {pricing.currency === "USD" ? "$" : pricing.currency}
+              {pricing.total.toFixed(2)}
+            </span>
           </div>
         </Card>
-      </div>
-    )
+      )}
+      <Card className="p-6">
+        <div className="flex items-center justify-center p-8">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      </Card>
+    </div>
+  )
   }
 
   return (
@@ -128,7 +155,7 @@ export function StepPayment({ paymentIntentId, clientSecret, onPaymentSuccess, i
         },
       }}
     >
-      <PaymentForm clientSecret={clientSecret} onPaymentSuccess={onPaymentSuccess} isLoading={isLoading} />
+      <PaymentForm clientSecret={clientSecret} onPaymentSuccess={onPaymentSuccess} isLoading={isLoading} pricing={pricing} />
     </Elements>
   )
 }
