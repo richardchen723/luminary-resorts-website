@@ -229,6 +229,253 @@ export async function createBooking(bookingData: any): Promise<any> {
 }
 
 /**
+ * Create an inquiry in Hostaway
+ * @param inquiryData - Inquiry request data
+ * Note: Uses listingMapId (not listingId) and arrivalDate/departureDate (not startDate/endDate)
+ * Status must be lowercase "inquiry" (not "Inquiry")
+ */
+export async function createInquiry(inquiryData: {
+  listingId: number
+  checkIn: string // YYYY-MM-DD
+  checkOut: string // YYYY-MM-DD
+  guests: number
+  adults: number
+  pets?: number
+  infants?: number
+  guestInfo: {
+    firstName: string
+    lastName: string
+    email: string
+    phone: string
+    address?: string
+    city?: string
+    state?: string
+    zipCode?: string
+    country?: string
+  }
+  message: string // Required - will be posted to Hostaway inbox
+}): Promise<{ id: number; hostawayReservationId: string; messageId?: number }> {
+  try {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/b28ecb8f-e0a5-4667-81bf-490fe6e90b80',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/hostaway.ts:257',message:'createInquiry - message received in function',data:{message:inquiryData.message,messageLength:inquiryData.message?.length||0,messageType:typeof inquiryData.message,hasMessage:!!inquiryData.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
+    // Get listingMapId from listingId
+    const listingMapId = await getListingMapId(inquiryData.listingId)
+
+    // Normalize phone number (ensure it has country code prefix)
+    const normalizePhoneNumber = (phone: string): string => {
+      if (!phone) return ""
+      
+      // Remove all formatting except + and digits
+      const cleaned = phone.replace(/[^\d+]/g, "")
+      
+      // If it already starts with +, return as is (international format)
+      if (cleaned.startsWith("+")) {
+        return cleaned
+      }
+      
+      // If it's 10 digits, assume US/Canada and add +1
+      if (/^\d{10}$/.test(cleaned)) {
+        return `+1${cleaned}`
+      }
+      
+      // If it's 11 digits starting with 1, add +
+      if (/^1\d{10}$/.test(cleaned)) {
+        return `+${cleaned}`
+      }
+      
+      // Otherwise, try to add +1 as default (US)
+      return `+1${cleaned}`
+    }
+
+    const normalizedPhone = normalizePhoneNumber(inquiryData.guestInfo.phone)
+
+    // Build inquiry payload
+    const inquiryPayload: any = {
+      channelId: 2000, // Direct booking channel
+      listingMapId,
+      arrivalDate: inquiryData.checkIn,
+      departureDate: inquiryData.checkOut,
+      numberOfGuests: inquiryData.guests,
+      adults: inquiryData.adults,
+      children: null,
+      infants: inquiryData.infants || null,
+      pets: inquiryData.pets || null,
+      guestFirstName: inquiryData.guestInfo.firstName,
+      guestLastName: inquiryData.guestInfo.lastName,
+      guestName: `${inquiryData.guestInfo.firstName} ${inquiryData.guestInfo.lastName}`,
+      guestEmail: inquiryData.guestInfo.email,
+      guestZipCode: inquiryData.guestInfo.zipCode || "",
+      guestAddress: inquiryData.guestInfo.address || "",
+      guestCity: inquiryData.guestInfo.city || "",
+      guestCountry: inquiryData.guestInfo.country || "US",
+      phone: normalizedPhone,
+      totalPrice: 0, // Inquiries don't have pricing
+      currency: "USD",
+      isPaid: 0, // Not paid for inquiry
+      isManuallyChecked: 0,
+      isInitial: 0,
+      status: "inquiry", // Lowercase "inquiry" is required
+      comment: inquiryData.message ? inquiryData.message.trim() : "", // Always include comment field
+      guestNote: inquiryData.message ? inquiryData.message.trim() : "", // Also set guestNote for UI display
+    }
+
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/b28ecb8f-e0a5-4667-81bf-490fe6e90b80',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/hostaway.ts:320',message:'createInquiry - comment and guestNote fields in payload before API call',data:{comment:inquiryPayload.comment,commentLength:inquiryPayload.comment.length,guestNote:inquiryPayload.guestNote,guestNoteLength:inquiryPayload.guestNote.length,hasComment:!!inquiryPayload.comment,hasGuestNote:!!inquiryPayload.guestNote,originalMessage:inquiryData.message,messageTrimmed:inquiryData.message?.trim()},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'H'})}).catch(()=>{});
+    // #endregion
+
+    // Log the payload to debug (excluding sensitive data)
+    console.log("Creating inquiry with payload:", {
+      ...inquiryPayload,
+      phone: inquiryPayload.phone ? `${inquiryPayload.phone.substring(0, 4)}...` : "",
+      comment: inquiryPayload.comment ? `"${inquiryPayload.comment.substring(0, 50)}${inquiryPayload.comment.length > 50 ? '...' : ''}"` : "(empty)",
+    })
+    const result = await makeRequest<any>("/reservations?forceOverbooking=1", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(inquiryPayload),
+    })
+
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/b28ecb8f-e0a5-4667-81bf-490fe6e90b80',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/hostaway.ts:338',message:'createInquiry - Hostaway API response received',data:{inquiryId:result.id,hostawayReservationId:result.hostawayReservationId,responseComment:result.comment,responseCommentLength:result.comment?.length||0,responseGuestNote:result.guestNote,responseGuestNoteLength:result.guestNote?.length||0,hasResponseComment:!!result.comment,hasResponseGuestNote:!!result.guestNote,responseKeys:Object.keys(result)},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'I'})}).catch(()=>{});
+    // #endregion
+
+    console.log(`✅ Successfully created inquiry for ${inquiryData.guestInfo.email}`)
+    
+    const reservationId = typeof result.id === 'number' ? result.id : parseInt(result.hostawayReservationId || result.id?.toString() || "0")
+    
+    // Add message to conversation if message is provided
+    let messageId: number | null = null
+    if (inquiryData.message && inquiryData.message.trim()) {
+      try {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/b28ecb8f-e0a5-4667-81bf-490fe6e90b80',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/hostaway.ts:348',message:'createInquiry - Attempting to add message to conversation',data:{reservationId,message:inquiryData.message.trim(),messageLength:inquiryData.message.trim().length},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'J'})}).catch(()=>{});
+        // #endregion
+        
+        const messageResult = await addMessageToConversation(
+          reservationId,
+          inquiryData.message.trim(),
+          1 // isIncoming: 1 = from guest
+        )
+        messageId = messageResult.messageId
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/b28ecb8f-e0a5-4667-81bf-490fe6e90b80',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/hostaway.ts:360',message:'createInquiry - Message added to conversation successfully',data:{messageId,reservationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'K'})}).catch(()=>{});
+        // #endregion
+        
+        console.log(`✅ Message added to conversation (Message ID: ${messageId})`)
+      } catch (messageError: any) {
+        // Log error but don't fail the inquiry creation
+        console.warn(`⚠️  Failed to add message to conversation: ${messageError.message}`)
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/b28ecb8f-e0a5-4667-81bf-490fe6e90b80',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/hostaway.ts:367',message:'createInquiry - Failed to add message to conversation',data:{error:messageError.message,reservationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'L'})}).catch(()=>{});
+        // #endregion
+      }
+    }
+    
+    return {
+      id: typeof result.id === 'number' ? result.id : parseInt(result.hostawayReservationId || result.id?.toString() || "0"),
+      hostawayReservationId: (result.id || result.hostawayReservationId)?.toString() || "",
+      messageId: messageId || undefined,
+    }
+  } catch (error: any) {
+    console.error(`❌ Failed to create inquiry: ${error.message}`)
+    throw error
+  }
+}
+
+/**
+ * Add a message to a Hostaway conversation
+ * @param reservationId - The reservation/inquiry ID
+ * @param message - The message text
+ * @param isIncoming - 1 for messages from guest, 0 for messages from host (default: 1)
+ * @returns Message ID
+ */
+export async function addMessageToConversation(
+  reservationId: number,
+  message: string,
+  isIncoming: number = 1
+): Promise<{ messageId: number }> {
+  // Wait for conversation to be created (may take 1-2 seconds)
+  let conversationId: number | null = null
+  let attempts = 0
+  const maxAttempts = 10
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/b28ecb8f-e0a5-4667-81bf-490fe6e90b80',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/hostaway.ts:388',message:'addMessageToConversation - Starting conversation lookup',data:{reservationId,messageLength:message.length,isIncoming,maxAttempts},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'M'})}).catch(()=>{});
+  // #endregion
+  
+  while (attempts < maxAttempts && !conversationId) {
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    attempts++
+    
+    try {
+      const conversations = await makeRequest<any[]>(
+        `/conversations?reservationId=${reservationId}`,
+        { method: "GET" }
+      )
+      
+      if (conversations.length > 0) {
+        conversationId = conversations[0].id
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/b28ecb8f-e0a5-4667-81bf-490fe6e90b80',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/hostaway.ts:402',message:'addMessageToConversation - Conversation found',data:{conversationId,reservationId,attempts},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'N'})}).catch(()=>{});
+        // #endregion
+        break
+      }
+    } catch (error: any) {
+      // Continue retrying
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/b28ecb8f-e0a5-4667-81bf-490fe6e90b80',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/hostaway.ts:410',message:'addMessageToConversation - Retry attempt',data:{attempts,error:error.message,reservationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'O'})}).catch(()=>{});
+      // #endregion
+    }
+  }
+  
+  if (!conversationId) {
+    const error = new Error(`No conversation found for reservation ${reservationId} after ${maxAttempts} attempts`)
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/b28ecb8f-e0a5-4667-81bf-490fe6e90b80',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/hostaway.ts:417',message:'addMessageToConversation - Conversation not found',data:{reservationId,maxAttempts},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'P'})}).catch(()=>{});
+    // #endregion
+    throw error
+  }
+  
+  // Add message to conversation
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/b28ecb8f-e0a5-4667-81bf-490fe6e90b80',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/hostaway.ts:423',message:'addMessageToConversation - Creating message',data:{conversationId,reservationId,messageLength:message.length,isIncoming},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'Q'})}).catch(()=>{});
+  // #endregion
+  
+  try {
+    const messageResult = await makeRequest<any>(
+      `/conversations/${conversationId}/messages`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          body: message,
+          isIncoming: isIncoming,
+        }),
+      }
+    )
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/b28ecb8f-e0a5-4667-81bf-490fe6e90b80',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/hostaway.ts:442',message:'addMessageToConversation - Message created successfully',data:{messageId:messageResult.id,conversationId,reservationId,status:messageResult.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'R'})}).catch(()=>{});
+    // #endregion
+    
+    return {
+      messageId: messageResult.id,
+    }
+  } catch (error: any) {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/b28ecb8f-e0a5-4667-81bf-490fe6e90b80',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/hostaway.ts:450',message:'addMessageToConversation - Failed to create message',data:{error:error.message,conversationId,reservationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'S'})}).catch(()=>{});
+    // #endregion
+    throw new Error(`Failed to add message to conversation: ${error.message}`)
+  }
+}
+
+/**
  * Delete a booking/reservation
  * @param bookingId - The Hostaway booking/reservation ID
  */
