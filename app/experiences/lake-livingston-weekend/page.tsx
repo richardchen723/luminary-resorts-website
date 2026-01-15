@@ -3,6 +3,7 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import Link from "next/link"
+import Image from "next/image"
 import { JsonLd } from "@/components/json-ld"
 import { generateMetadata as generateSEOMetadata } from "@/lib/seo"
 import type { Metadata } from "next"
@@ -17,6 +18,13 @@ export const metadata: Metadata = generateSEOMetadata({
 
 export default async function LakeLivingstonWeekendPage() {
   const cabins = await getAllCabinsFromHostaway()
+
+  // Define specific cover images for each cabin (same as home page)
+  const coverImages: Record<string, string> = {
+    dew: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-2VoxPw1ogFm--GFueKZyM--b9BvwcrnFQxchXfq28rNto-69641991b0aab", // DEW - Image 24
+    moss: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472338-hladcgjUFApjH7XWC1hAtZmwJUwSp8aaE-XuD2Q--HYw-69641964c3246", // MOSS - Image 2
+    mist: "https://a0.muscache.com/im/pictures/hosting/Hosting-1584455699787140211/original/3f00cc25-b6c9-43ea-a6f6-4f73bbee81f7.jpeg?aki_policy=xx_large", // MIST - Image 3
+  }
 
   const faqSchema = {
     '@context': 'https://schema.org',
@@ -133,26 +141,38 @@ export default async function LakeLivingstonWeekendPage() {
             All our cabins are just 5 minutes from Lake Livingston. Mist cabin offers direct lakefront access with a private dock.
           </p>
           <div className="grid md:grid-cols-2 gap-6">
-            {cabins.map((cabin) => (
-              <Card key={cabin.slug} className="hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <h3 className="font-serif text-2xl mb-3">
-                    <Link href={`/stay/${cabin.slug}`} className="hover:text-primary transition-colors">
-                      {cabin.name} Cabin
-                    </Link>
-                  </h3>
-                  <p className="text-muted-foreground mb-4 line-clamp-3">
-                    {cabin.description}
-                  </p>
-                  {cabin.slug === 'mist' && (
-                    <p className="text-sm text-primary mb-4 font-medium">✓ Direct lakefront access with private dock</p>
-                  )}
-                  <Button asChild variant="outline" className="rounded-full w-full">
-                    <Link href={`/stay/${cabin.slug}`}>View {cabin.name} Cabin</Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+            {cabins.map((cabin) => {
+              const coverImage = coverImages[cabin.slug] || cabin.images?.[0] || "/placeholder.svg"
+              return (
+                <Card key={cabin.slug} className="overflow-hidden group hover:shadow-xl transition-shadow bg-background border-border/50">
+                  <div className="relative h-64 overflow-hidden">
+                    <Image
+                      src={coverImage}
+                      alt={cabin.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-700"
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                    />
+                  </div>
+                  <CardContent className="p-6">
+                    <h3 className="font-serif text-2xl mb-3">
+                      <Link href={`/stay/${cabin.slug}`} className="hover:text-primary transition-colors">
+                        {cabin.name} Cabin
+                      </Link>
+                    </h3>
+                    <p className="text-muted-foreground mb-4 line-clamp-3">
+                      {cabin.description}
+                    </p>
+                    {cabin.slug === 'mist' && (
+                      <p className="text-sm text-primary mb-4 font-medium">✓ Direct lakefront access with private dock</p>
+                    )}
+                    <Button asChild variant="outline" className="rounded-full w-full">
+                      <Link href={`/stay/${cabin.slug}`}>View {cabin.name} Cabin</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
         </div>
       </section>
