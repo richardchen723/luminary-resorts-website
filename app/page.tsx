@@ -6,6 +6,8 @@ import { BookingWidget } from "@/components/booking-widget"
 import { HomeHero } from "@/components/home-hero"
 import { Button } from "@/components/ui/button"
 import { getAllCabinsFromHostaway } from "@/lib/cabin-cache"
+import { JsonLd } from "@/components/json-ld"
+import { WhyBookDirect } from "@/components/why-book-direct"
 
 export default async function HomePage() {
   // Fetch real cabin data from Hostaway (with static fallback)
@@ -18,8 +20,51 @@ export default async function HomePage() {
     mist: "https://a0.muscache.com/im/pictures/hosting/Hosting-1584455699787140211/original/3f00cc25-b6c9-43ea-a6f6-4f73bbee81f7.jpeg?aki_policy=xx_large", // MIST - Image 3
   }
 
+  const lodgingSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'LodgingBusiness',
+    name: 'Luminary Resorts at Hilltop',
+    description: 'Luxury tiny house retreat for couples in Coldspring, Texas. Four intimate cabins with private pools, floor-to-ceiling windows, and complete seclusion.',
+    url: 'https://luminaryresorts.com',
+    logo: 'https://luminaryresorts.com/icon.png',
+    image: 'https://luminaryresorts.com/og-image.jpg',
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: '50 Snowhill Rd',
+      addressLocality: 'Coldspring',
+      addressRegion: 'TX',
+      postalCode: '77331',
+      addressCountry: 'US',
+    },
+    geo: {
+      '@type': 'GeoCoordinates',
+      latitude: '30.5885',
+      longitude: '-95.1294',
+    },
+    telephone: '+14045908346',
+    priceRange: '$$$',
+    amenityFeature: [
+      {
+        '@type': 'LocationFeatureSpecification',
+        name: 'Private Pool',
+        value: true,
+      },
+      {
+        '@type': 'LocationFeatureSpecification',
+        name: 'EV Charging',
+        value: true,
+      },
+      {
+        '@type': 'LocationFeatureSpecification',
+        name: 'Lake Access',
+        value: true,
+      },
+    ],
+  }
+
   return (
     <div className="min-h-screen">
+      <JsonLd data={lodgingSchema} />
       <Header />
 
       {/* Announcement Bar */}
@@ -94,6 +139,9 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Why Book Direct */}
+      <WhyBookDirect />
 
       {/* Sticky Mobile Booking Bar */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-md border-t border-border p-4 z-40">

@@ -3,6 +3,15 @@ import { Footer } from "@/components/footer"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { JsonLd } from "@/components/json-ld"
+import { generateMetadata as generateSEOMetadata } from "@/lib/seo"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = generateSEOMetadata({
+  title: 'Frequently Asked Questions | Luminary Resorts',
+  description: 'Everything you need to know about your stay at Luminary Resorts. Booking, policies, amenities, location, and more. Get answers to common questions about our luxury tiny house retreat.',
+  path: '/faq',
+})
 
 export default function FAQPage() {
   const faqs = [
@@ -118,8 +127,25 @@ export default function FAQPage() {
     },
   ]
 
+  // Build FAQ schema from all questions
+  const faqSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.flatMap((category) =>
+      category.questions.map((faq) => ({
+        '@type': 'Question',
+        name: faq.q,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: faq.a,
+        },
+      }))
+    ),
+  }
+
   return (
     <div className="min-h-screen">
+      <JsonLd data={faqSchema} />
       <Header />
 
       {/* Hero */}

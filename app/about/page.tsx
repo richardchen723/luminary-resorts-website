@@ -1,6 +1,14 @@
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Heart, Sparkles, Home } from "lucide-react"
+import { generateMetadata as generateSEOMetadata } from "@/lib/seo"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = generateSEOMetadata({
+  title: 'Our Story | Luminary Resorts at Hilltop',
+  description: 'Learn about Luminary Resorts—a sanctuary for couples seeking romance, healing, and renewal. Built from our own journey of burnout and reconnection in East Texas.',
+  path: '/about',
+})
 
 export default function AboutPage() {
   return (

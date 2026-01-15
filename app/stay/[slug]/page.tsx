@@ -14,6 +14,10 @@ import { ExpandableDescription } from "@/components/expandable-description"
 import { ExpandableAmenities } from "@/components/expandable-amenities"
 import { CabinBookingWidget } from "@/components/cabin-booking-widget"
 import { Suspense } from "react"
+import { JsonLd } from "@/components/json-ld"
+import { generateMetadata as generateSEOMetadata, getCabinSEO } from "@/lib/seo"
+import type { Metadata } from "next"
+import { WhyBookDirect } from "@/components/why-book-direct"
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -23,6 +27,26 @@ export async function generateStaticParams() {
   return cabins.map((cabin) => ({
     slug: cabin.slug,
   }))
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  const cabin = await getCabinBySlug(slug)
+  
+  if (!cabin) {
+    return {
+      title: 'Cabin Not Found | Luminary Resorts',
+    }
+  }
+  
+  const seo = getCabinSEO(cabin)
+  
+  return generateSEOMetadata({
+    title: seo.title,
+    description: seo.description,
+    path: `/stay/${slug}`,
+    image: seo.image,
+  })
 }
 
 export default async function CabinDetailPage({ params }: PageProps) {
@@ -44,8 +68,42 @@ export default async function CabinDetailPage({ params }: PageProps) {
     console.error("Error fetching other cabins, using static data:", error)
   }
 
+  const hotelSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Hotel',
+    name: `${cabin.name} Cabin - Luminary Resorts`,
+    description: cabin.description,
+    image: cabin.images || [],
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: '50 Snowhill Rd',
+      addressLocality: 'Coldspring',
+      addressRegion: 'TX',
+      postalCode: '77331',
+      addressCountry: 'US',
+    },
+    containedIn: {
+      '@type': 'LodgingBusiness',
+      name: 'Luminary Resorts at Hilltop',
+    },
+    amenityFeature: cabin.amenities?.map((amenity) => ({
+      '@type': 'LocationFeatureSpecification',
+      name: amenity,
+      value: true,
+    })) || [],
+    numberOfRooms: {
+      '@type': 'QuantitativeValue',
+      value: 1,
+    },
+    occupancy: {
+      '@type': 'QuantitativeValue',
+      value: 2,
+    },
+  }
+
   return (
     <div className="min-h-screen">
+      <JsonLd data={hotelSchema} />
       <Header />
 
       {/* Hero Section */}
@@ -91,6 +149,58 @@ export default async function CabinDetailPage({ params }: PageProps) {
                 </div>
               )}
 
+              {/* Unique Content Blocks */}
+              {cabin.slug === "moss" && (
+                <div className="mt-12">
+                  <h3 className="font-serif text-3xl mb-6">Immersive Forest Experience</h3>
+                  <p className="text-lg leading-relaxed text-muted-foreground mb-4">
+                    Moss cabin's floor-to-ceiling windows create a unique experience where the forest becomes part of your living space. Wake up to treetops at eye level, watch the light change throughout the day, and feel completely immersed in nature while enjoying the comfort of a luxury cabin.
+                  </p>
+                  <p className="text-lg leading-relaxed text-muted-foreground">
+                    This contemporary glass sanctuary is perfect for couples who want to feel connected to nature without sacrificing luxury or comfort. The automated blinds provide privacy when you want it, but when open, you're living in the forest.
+                  </p>
+                </div>
+              )}
+
+              {cabin.slug === "dew" && (
+                <div className="mt-12">
+                  <h3 className="font-serif text-3xl mb-6">Private Pool & Asian Zen Design</h3>
+                  <p className="text-lg leading-relaxed text-muted-foreground mb-4">
+                    Dew cabin offers the ultimate luxury: your own private 18' x 9' pool set on a hilltop deck with panoramic views. The Asian Zen-inspired design creates a serene, calming atmosphere perfect for couples seeking both romance and tranquility.
+                  </p>
+                  <p className="text-lg leading-relaxed text-muted-foreground mb-4">
+                    The bamboo courtyard, skylight over the bed, and wall-to-wall windows create a space that feels both intimate and expansive. Float in your private pool, watch sunsets from the deck, and experience complete privacy in this thoughtfully designed retreat.
+                  </p>
+                  <p className="text-lg leading-relaxed text-muted-foreground">
+                    Perfect for <Link href="/experiences/private-pool-getaway" className="text-primary hover:underline">private pool getaways</Link> and <Link href="/experiences/romantic-getaway-near-houston" className="text-primary hover:underline">romantic escapes</Link>.
+                  </p>
+                </div>
+              )}
+
+              {cabin.slug === "sol" && (
+                <div className="mt-12">
+                  <h3 className="font-serif text-3xl mb-6">Panoramic Sunset Views</h3>
+                  <p className="text-lg leading-relaxed text-muted-foreground mb-4">
+                    Perched at the highest point of our property, Sol cabin offers the most spectacular panoramic views. Watch the sky transform during sunset from your private terrace, stargaze from the dedicated deck, and experience the beauty of the Texas Hill Country from an elevated perspective.
+                  </p>
+                  <p className="text-lg leading-relaxed text-muted-foreground">
+                    The freestanding soaking tub with views, combined with the stargazing deck, makes Sol perfect for couples seeking a romantic, elevated experience. This is where you come to watch the world from above and reconnect with each other under the stars.
+                  </p>
+                </div>
+              )}
+
+              {cabin.slug === "mist" && (
+                <div className="mt-12">
+                  <h3 className="font-serif text-3xl mb-6">Lakefront Serenity</h3>
+                  <p className="text-lg leading-relaxed text-muted-foreground mb-4">
+                    Mist cabin offers direct access to the water with a private dock, making it perfect for couples who love lake activities or simply want to wake up to morning mist on the water. Just 5 minutes from Lake Livingston, this cabin combines lakefront living with luxury amenities.
+                  </p>
+                  <p className="text-lg leading-relaxed text-muted-foreground">
+                    Ideal for <Link href="/experiences/lake-livingston-weekend" className="text-primary hover:underline">Lake Livingston weekend getaways</Link>, Mist provides the perfect base for boating, fishing, or simply enjoying the peaceful lakeside atmosphere. The private dock and waterfront views create a serene setting for your romantic escape.
+                  </p>
+                </div>
+              )}
+
               {/* Amenities */}
               {cabin.amenities && cabin.amenities.length > 0 && (
                 <div className="mt-12">
@@ -105,6 +215,73 @@ export default async function CabinDetailPage({ params }: PageProps) {
                   />
                 </div>
               )}
+
+              {/* Internal Links */}
+              <div className="mt-12">
+                <h3 className="font-serif text-3xl mb-6">Explore More</h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Card>
+                    <CardContent className="p-6">
+                      <h4 className="font-serif text-xl mb-2">
+                        <Link href="/location" className="hover:text-primary transition-colors">
+                          Location & Directions
+                        </Link>
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Just 1 hour from Houston. Get directions and learn about our hilltop location.
+                      </p>
+                      <Button asChild variant="outline" size="sm" className="rounded-full">
+                        <Link href="/location">View Location</Link>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-6">
+                      <h4 className="font-serif text-xl mb-2">
+                        <Link href="/stays" className="hover:text-primary transition-colors">
+                          Compare All Cabins
+                        </Link>
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        See how {cabin.name} compares to our other luxury cabins.
+                      </p>
+                      <Button asChild variant="outline" size="sm" className="rounded-full">
+                        <Link href="/stays">View All Cabins</Link>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-6">
+                      <h4 className="font-serif text-xl mb-2">
+                        <Link href="/experiences/romantic-getaway-near-houston" className="hover:text-primary transition-colors">
+                          Romantic Getaway Experience
+                        </Link>
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Perfect for couples seeking romance and connection.
+                      </p>
+                      <Button asChild variant="outline" size="sm" className="rounded-full">
+                        <Link href="/experiences/romantic-getaway-near-houston">Learn More</Link>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-6">
+                      <h4 className="font-serif text-xl mb-2">
+                        <Link href="/about" className="hover:text-primary transition-colors">
+                          Our Story
+                        </Link>
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Learn about Luminary Resorts and our mission to create spaces for connection.
+                      </p>
+                      <Button asChild variant="outline" size="sm" className="rounded-full">
+                        <Link href="/about">Read Our Story</Link>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
             </div>
 
             {/* Sidebar */}
@@ -118,6 +295,9 @@ export default async function CabinDetailPage({ params }: PageProps) {
           </div>
         </div>
       </section>
+
+      {/* Why Book Direct */}
+      <WhyBookDirect />
 
       {/* Explore Other Cabins */}
       {otherCabins.length > 0 && (

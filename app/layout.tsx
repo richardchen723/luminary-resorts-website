@@ -17,9 +17,9 @@ const dancingScript = Dancing_Script({
 })
 
 export const metadata: Metadata = {
-  title: "Luminary Resorts at Hilltop | Private Retreat in Coldspring, Texas",
+  title: "Luminary Resorts at Hilltop | Luxury Tiny House Retreat Near Houston, Texas",
   description:
-    "Where silence reflects love. A private hilltop retreat for couples seeking romance, healing, and renewal. Four intimate cabins hidden in nature, Point Blank, Texas.",
+    "Romantic getaway 1 hour from Houston. Four intimate luxury cabins with private pools, floor-to-ceiling windows, and complete seclusion. Perfect for couples seeking romance and healing. Book direct.",
   generator: "v0.app",
   icons: {
     icon: [
