@@ -151,7 +151,7 @@ export default function LocationPage() {
               <Card>
                 <div className="aspect-square overflow-hidden">
                   <img
-                    src="https://www.dropbox.com/scl/fi/0ogacz4ar07nlzr7r0i1c/Luminary-Resorts-6.JPG?rlkey=geaawc1bm5lbmhr1cv1ys2ivu&st=21l6lp2d&dl=1"
+                    src="https://dl.dropboxusercontent.com/scl/fi/0ogacz4ar07nlzr7r0i1c/Luminary-Resorts-6.JPG?rlkey=geaawc1bm5lbmhr1cv1ys2ivu&st=21l6lp2d&dl=1"
                     alt="Lake Livingston"
                     className="w-full h-full object-cover"
                   />
@@ -185,7 +185,7 @@ export default function LocationPage() {
               <Card>
                 <div className="aspect-square overflow-hidden">
                   <img
-                    src="https://www.dropbox.com/scl/fi/ru0mu7aoycbpk2i6xbcm1/Luminary-Resorts-4.JPG?rlkey=hplz5s0hi8b7z6o5jvzdgemh6&st=l2tnk19u&dl=1"
+                    src="https://dl.dropboxusercontent.com/scl/fi/ru0mu7aoycbpk2i6xbcm1/Luminary-Resorts-4.JPG?rlkey=hplz5s0hi8b7z6o5jvzdgemh6&st=l2tnk19u&dl=1"
                     alt="Wolf Creek Park"
                     className="w-full h-full object-cover"
                   />
