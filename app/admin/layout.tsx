@@ -65,12 +65,14 @@ export default async function AdminLayout({
     { href: "/admin/reports", label: "Reports", icon: FileText },
   ]
 
+  // Admin and owner can access user management
+  if (adminUser.role === "admin" || adminUser.role === "owner") {
+    navItems.push({ href: "/admin/users", label: "Users", icon: UserCheck })
+  }
+
   // Owner-only items
   if (adminUser.role === "owner") {
-    navItems.push(
-      { href: "/admin/users", label: "Users", icon: UserCheck },
-      { href: "/admin/settings", label: "Settings", icon: Settings }
-    )
+    navItems.push({ href: "/admin/settings", label: "Settings", icon: Settings })
   }
 
   return (

@@ -1,5 +1,5 @@
 /**
- * POST /api/admin/users/[id]/reject - Reject user (admin and owner only)
+ * POST /api/admin/users/[id]/update - Update user role (admin and owner only)
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -17,29 +17,44 @@ export async function POST(
     // Handle params as Promise (Next.js 15+) or object (Next.js 14)
     const resolvedParams = params instanceof Promise ? await params : params
 
+    const body = await request.json()
+    const { role } = body
+
+    if (!role || !["admin", "member"].includes(role)) {
+      return NextResponse.json(
+        { error: "Invalid role. Must be 'admin' or 'member'" },
+        { status: 400 }
+      )
+    }
+
     // Check if user is owner (cannot change owner)
     const userResult = await query<{ email: string }>(
       "SELECT email FROM admin_users WHERE id = $1",
       [resolvedParams.id]
     )
 
-    if (userResult.rows?.[0]?.email === OWNER_EMAIL) {
+    if (!userResult.rows || userResult.rows.length === 0) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
+      )
+    }
+
+    if (userResult.rows[0].email === OWNER_EMAIL) {
       return NextResponse.json(
         { error: "Cannot modify owner account" },
         { status: 403 }
       )
     }
 
-    // Update user
+    // Update user role
     const updateResult = await query(
       `UPDATE admin_users 
-       SET approval_status = 'rejected',
-           approved_by = $1,
-           approved_at = NOW(),
+       SET role = $1,
            updated_at = NOW()
        WHERE id = $2
-       RETURNING id, email, approval_status`,
-      [adminUser.id, resolvedParams.id]
+       RETURNING id, email, role, approval_status`,
+      [role, resolvedParams.id]
     )
 
     if (!updateResult.rows || updateResult.rows.length === 0) {
@@ -49,14 +64,14 @@ export async function POST(
       )
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, user: updateResult.rows[0] })
   } catch (error: any) {
     if (error instanceof NextResponse) {
       return error
     }
-    console.error("Error rejecting user:", error)
+    console.error("Error updating user:", error)
     return NextResponse.json(
-      { error: error.message || "Failed to reject user" },
+      { error: error.message || "Failed to update user" },
       { status: 500 }
     )
   }

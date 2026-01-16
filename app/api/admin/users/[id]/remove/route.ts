@@ -1,5 +1,5 @@
 /**
- * POST /api/admin/users/[id]/reject - Reject user (admin and owner only)
+ * POST /api/admin/users/[id]/remove - Remove/delete user (admin and owner only)
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -17,32 +17,43 @@ export async function POST(
     // Handle params as Promise (Next.js 15+) or object (Next.js 14)
     const resolvedParams = params instanceof Promise ? await params : params
 
-    // Check if user is owner (cannot change owner)
+    // Check if user is owner (cannot delete owner)
     const userResult = await query<{ email: string }>(
       "SELECT email FROM admin_users WHERE id = $1",
       [resolvedParams.id]
     )
 
-    if (userResult.rows?.[0]?.email === OWNER_EMAIL) {
+    if (!userResult.rows || userResult.rows.length === 0) {
       return NextResponse.json(
-        { error: "Cannot modify owner account" },
+        { error: "User not found" },
+        { status: 404 }
+      )
+    }
+
+    if (userResult.rows[0].email === OWNER_EMAIL) {
+      return NextResponse.json(
+        { error: "Cannot delete owner account" },
         { status: 403 }
       )
     }
 
-    // Update user
-    const updateResult = await query(
-      `UPDATE admin_users 
-       SET approval_status = 'rejected',
-           approved_by = $1,
-           approved_at = NOW(),
-           updated_at = NOW()
-       WHERE id = $2
-       RETURNING id, email, approval_status`,
-      [adminUser.id, resolvedParams.id]
+    // Prevent deleting yourself
+    if (userResult.rows[0].email === adminUser.email) {
+      return NextResponse.json(
+        { error: "Cannot delete your own account" },
+        { status: 403 }
+      )
+    }
+
+    // Delete user
+    const deleteResult = await query(
+      `DELETE FROM admin_users 
+       WHERE id = $1
+       RETURNING id, email`,
+      [resolvedParams.id]
     )
 
-    if (!updateResult.rows || updateResult.rows.length === 0) {
+    if (!deleteResult.rows || deleteResult.rows.length === 0) {
       return NextResponse.json(
         { error: "User not found" },
         { status: 404 }
@@ -54,9 +65,9 @@ export async function POST(
     if (error instanceof NextResponse) {
       return error
     }
-    console.error("Error rejecting user:", error)
+    console.error("Error removing user:", error)
     return NextResponse.json(
-      { error: error.message || "Failed to reject user" },
+      { error: error.message || "Failed to remove user" },
       { status: 500 }
     )
   }

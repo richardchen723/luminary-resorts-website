@@ -1,5 +1,5 @@
 /**
- * POST /api/admin/users/[id]/approve - Approve user (owner only)
+ * POST /api/admin/users/[id]/approve - Approve user (admin and owner only)
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -12,7 +12,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const adminUser = await requireRoleApi(request, ["owner"])
+    const adminUser = await requireRoleApi(request, ["admin", "owner"])
 
     // Handle params as Promise (Next.js 15+) or object (Next.js 14)
     const resolvedParams = params instanceof Promise ? await params : params
