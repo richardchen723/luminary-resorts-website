@@ -112,7 +112,7 @@ function ContactForm() {
                   <Mail className="w-6 h-6 text-primary" />
                 </div>
                 <h3 className="font-serif text-lg mb-2">Email</h3>
-                <p className="text-muted-foreground">richard@luminaryresorts.com</p>
+                <p className="text-muted-foreground">lydia@luminaryresorts.com</p>
               </CardContent>
             </Card>
 
