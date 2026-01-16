@@ -145,8 +145,17 @@ export async function generateReport(params: {
     total_commission_paid: 0,
   }
 
+  // Normalize booking data to ensure numeric fields are numbers
+  const normalizedBookings = (bookingsResult.rows || []).map((booking) => ({
+    ...booking,
+    revenue_basis: parseFloat(booking.revenue_basis?.toString() || "0") || 0,
+    guest_discount_applied: parseFloat(booking.guest_discount_applied?.toString() || "0") || 0,
+    commission_owed: parseFloat(booking.commission_owed?.toString() || "0") || 0,
+    nights: parseInt(booking.nights?.toString() || "0", 10) || 0,
+  }))
+
   return {
-    bookings: bookingsResult.rows || [],
+    bookings: normalizedBookings,
     summary: {
       total_bookings: parseInt(summary.total_bookings.toString(), 10),
       total_revenue: parseFloat(summary.total_revenue.toString()),

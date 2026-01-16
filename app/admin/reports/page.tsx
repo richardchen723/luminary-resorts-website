@@ -353,9 +353,9 @@ export default function ReportsPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>${booking.revenue_basis.toFixed(2)}</TableCell>
-                    <TableCell>${booking.guest_discount_applied.toFixed(2)}</TableCell>
-                    <TableCell>${booking.commission_owed.toFixed(2)}</TableCell>
+                    <TableCell>${(Number(booking.revenue_basis) || 0).toFixed(2)}</TableCell>
+                    <TableCell>${(Number(booking.guest_discount_applied) || 0).toFixed(2)}</TableCell>
+                    <TableCell>${(Number(booking.commission_owed) || 0).toFixed(2)}</TableCell>
                     <TableCell>
                       <Badge
                         variant={
