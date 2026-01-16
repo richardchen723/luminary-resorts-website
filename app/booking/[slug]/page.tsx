@@ -45,6 +45,12 @@ export default function BookingPage() {
     petFee: number
     total: number
     currency: string
+    discount?: {
+      type: "percent" | "fixed"
+      value: number
+      amount: number
+    }
+    discounted_subtotal?: number
   } | null>(null)
   const [guestInfo, setGuestInfo] = useState<Partial<HostawayGuestInfo>>({})
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
@@ -118,7 +124,9 @@ export default function BookingPage() {
             if (Date.now() - parsed.timestamp < 10 * 60 * 1000) {
               // Recalculate pet fee in case pets changed
               const petFee = roundToTwoDecimals(pets > 0 ? 50 : 0) // $50 flat fee
-              const totalWithPetFee = roundToTwoDecimals((parsed.total - (parsed.petFee || 0)) + petFee)
+              // Recalculate total: if there's a discounted subtotal, use it; otherwise use regular subtotal
+              const subtotalToUse = parsed.discounted_subtotal || parsed.subtotal
+              const totalWithPetFee = roundToTwoDecimals(subtotalToUse + parsed.cleaningFee + parsed.tax + parsed.channelFee + petFee)
               setPricing({
                 nightlyRate: parsed.nightlyRate,
                 nights: parsed.nights,
@@ -129,6 +137,8 @@ export default function BookingPage() {
                 petFee,
                 total: totalWithPetFee,
                 currency: parsed.currency,
+                discount: parsed.discount,
+                discounted_subtotal: parsed.discounted_subtotal,
               })
               return
             }
@@ -184,29 +194,81 @@ export default function BookingPage() {
           }
         }
         
-        // If we successfully calculated from calendar, use it and cancel API call
+        // If we successfully calculated from calendar, still check for discount via API
         if (subtotalFromCalendar !== null && subtotalFromCalendar > 0) {
-          const cleaningFee = 100
-          const tax = roundToTwoDecimals(subtotalFromCalendar * 0.12)
-          const channelFee = roundToTwoDecimals(subtotalFromCalendar * 0.02)
-          const petFee = roundToTwoDecimals(pets > 0 ? 50 : 0) // $50 flat fee
-          const total = roundToTwoDecimals(subtotalFromCalendar + cleaningFee + tax + channelFee + petFee)
-          const nightlyRate = nights > 0 ? roundToTwoDecimals(subtotalFromCalendar / nights) : 0
-          
-          setPricing({
-            nightlyRate,
-            nights,
-            subtotal: roundToTwoDecimals(subtotalFromCalendar),
-            cleaningFee,
-            tax,
-            channelFee,
-            petFee,
-            total,
-            currency: currencyFromCalendar,
-          })
-          // Cancel any pending API call since we have calendar-based pricing
-          abortController.abort()
-          return
+          // Check for discount via API
+          try {
+            const discountResponse = await fetch("/api/pricing/discount", {
+              signal: abortController.signal,
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                subtotal: subtotalFromCalendar,
+              }),
+            })
+            
+            let discount = null
+            if (discountResponse.ok) {
+              const discountData = await discountResponse.json()
+              discount = discountData.discount || null
+            }
+            
+            const subtotalToUse = discount ? discount.discounted_subtotal : subtotalFromCalendar
+            const cleaningFee = 100
+            const tax = roundToTwoDecimals(subtotalToUse * 0.12)
+            const channelFee = roundToTwoDecimals(subtotalToUse * 0.02)
+            const petFee = roundToTwoDecimals(pets > 0 ? 50 : 0) // $50 flat fee
+            const total = roundToTwoDecimals(subtotalToUse + cleaningFee + tax + channelFee + petFee)
+            const nightlyRate = nights > 0 ? roundToTwoDecimals(subtotalFromCalendar / nights) : 0
+            
+            setPricing({
+              nightlyRate,
+              nights,
+              subtotal: roundToTwoDecimals(subtotalFromCalendar),
+              cleaningFee,
+              tax,
+              channelFee,
+              petFee,
+              total,
+              currency: currencyFromCalendar,
+              discount: discount ? {
+                type: discount.discount_type,
+                value: discount.discount_value,
+                amount: discount.discount_amount,
+              } : undefined,
+              discounted_subtotal: discount ? discount.discounted_subtotal : undefined,
+            })
+            // Cancel any pending API call since we have calendar-based pricing with discount
+            abortController.abort()
+            return
+          } catch (discountError: any) {
+            // If discount API fails, use calendar pricing without discount
+            if (discountError.name !== 'AbortError') {
+              console.warn("Failed to get discount for calendar pricing:", discountError)
+            }
+            const cleaningFee = 100
+            const tax = roundToTwoDecimals(subtotalFromCalendar * 0.12)
+            const channelFee = roundToTwoDecimals(subtotalFromCalendar * 0.02)
+            const petFee = roundToTwoDecimals(pets > 0 ? 50 : 0)
+            const total = roundToTwoDecimals(subtotalFromCalendar + cleaningFee + tax + channelFee + petFee)
+            const nightlyRate = nights > 0 ? roundToTwoDecimals(subtotalFromCalendar / nights) : 0
+            
+            setPricing({
+              nightlyRate,
+              nights,
+              subtotal: roundToTwoDecimals(subtotalFromCalendar),
+              cleaningFee,
+              tax,
+              channelFee,
+              petFee,
+              total,
+              currency: currencyFromCalendar,
+            })
+            abortController.abort()
+            return
+          }
         }
 
         // Fallback to pricing API - retry up to 3 times
@@ -238,15 +300,17 @@ export default function BookingPage() {
               
               if (pricingData?.breakdown?.total) {
                 const breakdown = pricingData.breakdown
+                // Use discounted subtotal if discount was applied, otherwise use regular subtotal
+                const subtotalToUse = breakdown.discounted_subtotal ?? breakdown.subtotal
                 const cleaningFee = breakdown.fees || 100
-                const tax = breakdown.taxes ? roundToTwoDecimals(breakdown.taxes) : roundToTwoDecimals(breakdown.subtotal * 0.12)
-                const channelFee = roundToTwoDecimals(breakdown.subtotal * 0.02)
+                const tax = breakdown.taxes ? roundToTwoDecimals(breakdown.taxes) : roundToTwoDecimals(subtotalToUse * 0.12)
+                const channelFee = breakdown.channelFee ? roundToTwoDecimals(breakdown.channelFee) : roundToTwoDecimals(subtotalToUse * 0.02)
                 const petFee = roundToTwoDecimals(pets > 0 ? 50 : 0) // $50 flat fee
-                const calculatedTotal = roundToTwoDecimals(breakdown.subtotal + cleaningFee + tax + channelFee + petFee)
+                const calculatedTotal = roundToTwoDecimals(subtotalToUse + cleaningFee + tax + channelFee + petFee)
                 const total = breakdown.total ? roundToTwoDecimals(breakdown.total + petFee) : calculatedTotal
                 
                 setPricing({
-                  nightlyRate: breakdown.nightlyRate ? roundToTwoDecimals(breakdown.nightlyRate) : (breakdown.nights > 0 ? roundToTwoDecimals(breakdown.subtotal / breakdown.nights) : 0),
+                  nightlyRate: breakdown.nightlyRate ? roundToTwoDecimals(breakdown.nightlyRate) : (breakdown.nights > 0 ? roundToTwoDecimals((breakdown.discounted_subtotal ?? breakdown.subtotal) / breakdown.nights) : 0),
                   nights: breakdown.nights || nights,
                   subtotal: roundToTwoDecimals(breakdown.subtotal),
                   cleaningFee,
@@ -255,20 +319,24 @@ export default function BookingPage() {
                   petFee,
                   total,
                   currency: breakdown.currency || "USD",
+                  discount: breakdown.discount,
+                  discounted_subtotal: breakdown.discounted_subtotal,
                 })
                 pricingSuccess = true
                 break
               } else if (pricingData?.breakdown?.subtotal) {
                 // Has breakdown but no total - calculate it
                 const breakdown = pricingData.breakdown
+                // Use discounted subtotal if discount was applied, otherwise use regular subtotal
+                const subtotalToUse = breakdown.discounted_subtotal ?? breakdown.subtotal
                 const cleaningFee = breakdown.fees || 100
-                const tax = breakdown.taxes ? roundToTwoDecimals(breakdown.taxes) : roundToTwoDecimals(breakdown.subtotal * 0.12)
-                const channelFee = roundToTwoDecimals(breakdown.subtotal * 0.02)
+                const tax = breakdown.taxes ? roundToTwoDecimals(breakdown.taxes) : roundToTwoDecimals(subtotalToUse * 0.12)
+                const channelFee = breakdown.channelFee ? roundToTwoDecimals(breakdown.channelFee) : roundToTwoDecimals(subtotalToUse * 0.02)
                 const petFee = roundToTwoDecimals(pets > 0 ? 50 : 0) // $50 flat fee
-                const total = roundToTwoDecimals(breakdown.subtotal + cleaningFee + tax + channelFee + petFee)
+                const total = roundToTwoDecimals(subtotalToUse + cleaningFee + tax + channelFee + petFee)
                 
                 setPricing({
-                  nightlyRate: breakdown.nightlyRate ? roundToTwoDecimals(breakdown.nightlyRate) : (breakdown.nights > 0 ? roundToTwoDecimals(breakdown.subtotal / breakdown.nights) : 0),
+                  nightlyRate: breakdown.nightlyRate ? roundToTwoDecimals(breakdown.nightlyRate) : (breakdown.nights > 0 ? roundToTwoDecimals((breakdown.discounted_subtotal ?? breakdown.subtotal) / breakdown.nights) : 0),
                   nights: breakdown.nights || nights,
                   subtotal: roundToTwoDecimals(breakdown.subtotal),
                   cleaningFee,
@@ -277,6 +345,8 @@ export default function BookingPage() {
                   petFee,
                   total,
                   currency: breakdown.currency || "USD",
+                  discount: breakdown.discount,
+                  discounted_subtotal: breakdown.discounted_subtotal,
                 })
                 pricingSuccess = true
                 break

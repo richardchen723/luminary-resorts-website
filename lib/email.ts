@@ -28,7 +28,7 @@ interface BookingConfirmationEmailData {
 /**
  * Get Gmail transporter (reusable)
  */
-function getTransporter() {
+export function getTransporter() {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
     throw new Error("Gmail credentials not configured")
   }

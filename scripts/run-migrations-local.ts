@@ -14,6 +14,7 @@ import { join } from 'path'
 
 const MIGRATION_001 = readFileSync(join(process.cwd(), 'lib/db/migrations/001_initial_schema.sql'), 'utf-8')
 const MIGRATION_002 = readFileSync(join(process.cwd(), 'lib/db/migrations/002_add_calendar_reservations.sql'), 'utf-8')
+const MIGRATION_003 = readFileSync(join(process.cwd(), 'lib/db/migrations/003_affiliate_marketing.sql'), 'utf-8')
 
 async function runMigrations() {
   console.log('🚀 Starting database migrations...\n')
@@ -77,6 +78,30 @@ async function runMigrations() {
     throw error
   }
 
+  // Run Migration 003
+  try {
+    console.log('📦 Running Migration 003: Affiliate Marketing...')
+    const statements = MIGRATION_003.split(';').filter(s => s.trim().length > 0 && !s.trim().startsWith('--'))
+    
+    for (const statement of statements) {
+      const trimmed = statement.trim()
+      if (trimmed) {
+        try {
+          await query(trimmed)
+        } catch (error: any) {
+          // Ignore "already exists" errors
+          if (!error.message?.includes('already exists') && !error.message?.includes('duplicate')) {
+            console.warn('  ⚠️  Warning:', error.message)
+          }
+        }
+      }
+    }
+    console.log('✅ Migration 003 completed successfully\n')
+  } catch (error: any) {
+    console.error('❌ Migration 003 failed:', error.message)
+    throw error
+  }
+
   // Verify tables exist
   try {
     console.log('🔍 Verifying tables...')
@@ -89,7 +114,17 @@ async function runMigrations() {
     const tables = result.rows.map((row: any) => row.table_name)
     console.log('✅ Tables verified:', tables.join(', '))
     
-    const expectedTables = ['bookings', 'booking_modifications', 'calendar_cache']
+    const expectedTables = [
+      'bookings', 
+      'booking_modifications', 
+      'calendar_cache',
+      'admin_users',
+      'influencers',
+      'incentive_rules',
+      'booking_attributions',
+      'commission_ledger',
+      'incentive_audit_log'
+    ]
     const missingTables = expectedTables.filter(t => !tables.includes(t))
     
     if (missingTables.length > 0) {

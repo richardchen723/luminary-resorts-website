@@ -75,6 +75,12 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     total: number
     currency: string
     available: boolean
+    discount?: {
+      type: "percent" | "fixed"
+      value: number
+      amount: number
+    }
+    discounted_subtotal?: number
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [calendarData, setCalendarData] = useState<Record<string, HostawayCalendarEntry>>({})
@@ -171,35 +177,9 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         }
       }
       
-      // If we successfully calculated from calendar, use it
-      if (subtotalFromCalendar !== null && subtotalFromCalendar > 0) {
-        const cleaningFee = 100
-        const tax = roundToTwoDecimals(subtotalFromCalendar * 0.12)
-        const channelFee = roundToTwoDecimals(subtotalFromCalendar * 0.02)
-        const petFee = roundToTwoDecimals(parseInt(pets, 10) > 0 ? 50 : 0) // $50 flat fee
-        const total = roundToTwoDecimals(subtotalFromCalendar + cleaningFee + tax + channelFee + petFee)
-        const nightlyRate = nights > 0 ? roundToTwoDecimals(subtotalFromCalendar / nights) : 0
-        
-        const pricingData = {
-          nightlyRate,
-          nights,
-          subtotal: roundToTwoDecimals(subtotalFromCalendar),
-          cleaningFee,
-          tax,
-          channelFee,
-          petFee,
-          total,
-          currency: currencyFromCalendar,
-          available: true,
-        }
-        setPricing(pricingData)
-        // Track pricing view
-        trackViewPricing(cabinSlug, nights)
-        setIsLoadingPricing(false)
-        return
-      }
-
-      // Call pricing API directly
+      // Always call pricing API to get discount if referral cookie is present
+      // The API will apply discounts and return the correct pricing
+      // Calendar pricing is only used as a fallback if API fails
       const requestBody = {
         listingId,
         startDate: checkIn,
@@ -277,6 +257,60 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
       }
 
       const pricingData = await response.json()
+      
+      // If API returns available:false with invalid breakdown (zero values), use calendar pricing with discount
+      const hasValidBreakdown = pricingData.breakdown && pricingData.breakdown.subtotal > 0 && pricingData.breakdown.nightlyRate > 0
+      
+      // If API returns available:false without valid breakdown, use calendar pricing with discount
+      if (!pricingData.available && !hasValidBreakdown && subtotalFromCalendar !== null && subtotalFromCalendar > 0) {
+        // Use calendar pricing but still apply discount via API call
+        const discountResponse = await fetch("/api/pricing/discount", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            subtotal: subtotalFromCalendar,
+          }),
+        })
+        
+        let discount = null
+        if (discountResponse.ok) {
+          const discountData = await discountResponse.json()
+          discount = discountData.discount || null
+        }
+        
+        const subtotalToUse = discount ? discount.discounted_subtotal : subtotalFromCalendar
+        const cleaningFee = 100
+        const tax = roundToTwoDecimals(subtotalToUse * 0.12)
+        const channelFee = roundToTwoDecimals(subtotalToUse * 0.02)
+        const petFee = roundToTwoDecimals(parseInt(pets, 10) > 0 ? 50 : 0)
+        const total = roundToTwoDecimals(subtotalToUse + cleaningFee + tax + channelFee + petFee)
+        const nightlyRate = nights > 0 ? roundToTwoDecimals(subtotalFromCalendar / nights) : 0
+        
+        const pricingData = {
+          nightlyRate,
+          nights,
+          subtotal: roundToTwoDecimals(subtotalFromCalendar),
+          cleaningFee,
+          tax,
+          channelFee,
+          petFee,
+          total,
+          currency: currencyFromCalendar,
+          available: true,
+          discount: discount ? {
+            type: discount.discount_type,
+            value: discount.discount_value,
+            amount: discount.discount_amount,
+          } : undefined,
+          discounted_subtotal: discount ? discount.discounted_subtotal : undefined,
+        }
+        setPricing(pricingData)
+        trackViewPricing(cabinSlug, nights)
+        setIsLoadingPricing(false)
+        return
+      }
       
       // If API returns available:false without breakdown, use fallback pricing
       if (!pricingData.available && !pricingData.breakdown) {
@@ -361,20 +395,25 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         return
       }
       
-      if (pricingData.available && pricingData.breakdown) {
+      // Use API breakdown if it's valid (has non-zero values), otherwise fall back to calendar pricing
+      if (hasValidBreakdown && pricingData.breakdown) {
         const breakdown = pricingData.breakdown
         // Use fees and taxes from API if provided, otherwise calculate
         const cleaningFee = breakdown.fees || 100
-        const tax = breakdown.taxes ? roundToTwoDecimals(breakdown.taxes) : roundToTwoDecimals(breakdown.subtotal * 0.12)
-        const channelFee = roundToTwoDecimals(breakdown.subtotal * 0.02)
+        
+        // Use discounted subtotal if discount was applied, otherwise use regular subtotal
+        const subtotalToUse = breakdown.discounted_subtotal ?? breakdown.subtotal
+        const tax = breakdown.taxes ? roundToTwoDecimals(breakdown.taxes) : roundToTwoDecimals(subtotalToUse * 0.12)
+        // Use channelFee from API if provided (may be recalculated for discount), otherwise calculate
+        const channelFee = breakdown.channelFee ? roundToTwoDecimals(breakdown.channelFee) : roundToTwoDecimals(subtotalToUse * 0.02)
         const petFee = roundToTwoDecimals(parseInt(pets, 10) > 0 ? 50 : 0) // $50 flat fee
         
         // If API provides total, use it; otherwise calculate
-        const calculatedTotal = roundToTwoDecimals(breakdown.subtotal + cleaningFee + tax + channelFee + petFee)
+        const calculatedTotal = roundToTwoDecimals(subtotalToUse + cleaningFee + tax + channelFee + petFee)
         const total = breakdown.total ? roundToTwoDecimals(breakdown.total + petFee) : calculatedTotal
 
-        const pricingData = {
-          nightlyRate: breakdown.nightlyRate ? roundToTwoDecimals(breakdown.nightlyRate) : (breakdown.nights > 0 ? roundToTwoDecimals(breakdown.subtotal / breakdown.nights) : 0),
+        const finalPricingData = {
+          nightlyRate: breakdown.nightlyRate ? roundToTwoDecimals(breakdown.nightlyRate) : (breakdown.nights > 0 ? roundToTwoDecimals((breakdown.discounted_subtotal ?? breakdown.subtotal) / breakdown.nights) : 0),
           nights: breakdown.nights || nights,
           subtotal: roundToTwoDecimals(breakdown.subtotal),
           cleaningFee,
@@ -384,9 +423,11 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
           total,
           currency: breakdown.currency || "USD",
           available: true,
+          discount: breakdown.discount,
+          discounted_subtotal: breakdown.discounted_subtotal,
         }
-        setPricing(pricingData)
-        trackViewPricing(cabinSlug, pricingData.nights)
+        setPricing(finalPricingData)
+        trackViewPricing(cabinSlug, finalPricingData.nights)
       } else if (pricingData.available) {
         // API says available but no breakdown - use fallback calculation
         // This shouldn't happen, but handle gracefully
@@ -989,6 +1030,28 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                     {pricing.subtotal.toFixed(2)}
                   </span>
                 </div>
+
+                {pricing.discount && pricing.discount.amount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span className="text-muted-foreground">
+                      Discount {pricing.discount.type === "percent" ? `(${pricing.discount.value}%)` : ""}
+                    </span>
+                    <span className="font-medium">
+                      -{pricing.currency === "USD" ? "$" : pricing.currency}
+                      {pricing.discount.amount.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
+                {pricing.discounted_subtotal && pricing.discounted_subtotal !== pricing.subtotal && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal (after discount)</span>
+                    <span className="font-medium">
+                      {pricing.currency === "USD" ? "$" : pricing.currency}
+                      {pricing.discounted_subtotal.toFixed(2)}
+                    </span>
+                  </div>
+                )}
 
                 {pricing.cleaningFee > 0 && (
                   <div className="flex justify-between text-sm">

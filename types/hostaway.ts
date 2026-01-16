@@ -131,8 +131,15 @@ export interface HostawayPricingBreakdown {
   subtotal: number
   taxes?: number
   fees?: number
+  channelFee?: number
   total: number
   currency: string
+  discount?: {
+    type: "percent" | "fixed"
+    value: number
+    amount: number
+  }
+  discounted_subtotal?: number
 }
 
 export interface HostawayPricingResponse {

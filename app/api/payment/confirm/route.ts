@@ -4,6 +4,7 @@
  */
 
 import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
 import { getPaymentIntent, confirmPaymentIntent } from "@/lib/stripe"
 import { createBookingOperation } from "@/lib/booking-operations"
 import { getListingIdBySlug } from "@/lib/listing-map"
@@ -11,6 +12,8 @@ import { roundToTwoDecimals } from "@/lib/utils"
 import { sendBookingConfirmationEmail } from "@/lib/email"
 import { getCabinBySlugSync } from "@/lib/cabins"
 import { addMessageToConversation } from "@/lib/hostaway"
+import { getReferralCodeFromRequest } from "@/lib/discounts"
+import { createBookingAttribution } from "@/lib/attribution"
 
 interface ConfirmPaymentRequest {
   paymentIntentId: string
@@ -25,6 +28,7 @@ interface ConfirmPaymentRequest {
     nightlyRate: number
     nights: number
     subtotal: number
+    discounted_subtotal?: number // Subtotal after discount (if discount applied)
     cleaningFee: number
     tax: number
     channelFee: number
@@ -164,6 +168,33 @@ export async function POST(request: Request) {
       })
 
       const confirmationCode = `LR-${booking.id.substring(0, 8).toUpperCase()}`
+      
+      // Check for referral code and create attribution
+      const cookieStore = await cookies()
+      const referralCode = getReferralCodeFromRequest(cookieStore)
+      
+      if (referralCode && pricing) {
+        try {
+          // Calculate discount amount (original subtotal - discounted subtotal)
+          // If pricing has discount info, use it; otherwise calculate from subtotal
+          const originalSubtotal = pricing.subtotal
+          const discountedSubtotal = pricing.discounted_subtotal || pricing.subtotal
+          const discountApplied = originalSubtotal - discountedSubtotal
+          
+          // Revenue basis is the original subtotal (before discount)
+          await createBookingAttribution({
+            bookingId: booking.id,
+            referralCode,
+            revenueBasis: originalSubtotal,
+            guestDiscountApplied: discountApplied,
+          })
+          
+          console.log(`✅ Booking attribution created for referral code: ${referralCode}`)
+        } catch (attributionError: any) {
+          // Log error but don't fail the booking
+          console.warn(`⚠️  Failed to create booking attribution: ${attributionError.message}`)
+        }
+      }
       
       // Get cabin information for email
       const cabin = getCabinBySlugSync(slug)

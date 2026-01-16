@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { Card } from "@/components/ui/card"
-import { Calendar, Users, DollarSign, Home } from "lucide-react"
+import { Calendar, Users, Home } from "lucide-react"
 import type { Cabin } from "@/lib/cabins"
 
 interface StepReviewProps {
@@ -22,6 +22,12 @@ interface StepReviewProps {
     petFee: number
     total: number
     currency: string
+    discount?: {
+      type: "percent" | "fixed"
+      value: number
+      amount: number
+    }
+    discounted_subtotal?: number
   } | null
 }
 
@@ -113,6 +119,28 @@ export function StepReview({
                 {pricing.subtotal.toFixed(2)}
               </span>
             </div>
+
+            {pricing.discount && pricing.discount.amount > 0 && (
+              <div className="flex justify-between text-sm text-green-600">
+                <span className="text-muted-foreground">
+                  Discount {pricing.discount.type === "percent" ? `(${pricing.discount.value}%)` : ""}
+                </span>
+                <span className="font-medium">
+                  -{pricing.currency === "USD" ? "$" : pricing.currency}
+                  {pricing.discount.amount.toFixed(2)}
+                </span>
+              </div>
+            )}
+
+            {pricing.discounted_subtotal && pricing.discounted_subtotal !== pricing.subtotal && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Subtotal (after discount)</span>
+                <span className="font-medium">
+                  {pricing.currency === "USD" ? "$" : pricing.currency}
+                  {pricing.discounted_subtotal.toFixed(2)}
+                </span>
+              </div>
+            )}
 
             {pricing.cleaningFee > 0 && (
               <div className="flex justify-between text-sm">

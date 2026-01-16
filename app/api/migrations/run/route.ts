@@ -152,6 +152,11 @@ CREATE INDEX IF NOT EXISTS idx_calendar_cache_reservations
 ON calendar_cache USING GIN (reservations);
 `
 
+const MIGRATION_003 = readFileSync(
+  join(process.cwd(), 'lib/db/migrations/003_affiliate_marketing.sql'),
+  'utf-8'
+)
+
 export async function POST(request: Request) {
   try {
     // Security check - require secret key or allow in development
@@ -220,6 +225,30 @@ export async function POST(request: Request) {
       results.push('✅ Migration 002 completed successfully')
     } catch (error: any) {
       results.push(`❌ Migration 002 failed: ${error.message}`)
+      throw error
+    }
+
+    // Run Migration 003
+    try {
+      console.log('Running Migration 003: Affiliate Marketing System...')
+      const statements = MIGRATION_003.split(';').filter(s => s.trim().length > 0)
+      
+      for (const statement of statements) {
+        const trimmed = statement.trim()
+        if (trimmed && !trimmed.startsWith('--')) {
+          try {
+            await query(trimmed)
+          } catch (error: any) {
+            // Ignore "already exists" errors
+            if (!error.message?.includes('already exists') && !error.message?.includes('duplicate')) {
+              console.warn('Migration 003 statement warning:', error.message)
+            }
+          }
+        }
+      }
+      results.push('✅ Migration 003 completed successfully')
+    } catch (error: any) {
+      results.push(`❌ Migration 003 failed: ${error.message}`)
       throw error
     }
 
