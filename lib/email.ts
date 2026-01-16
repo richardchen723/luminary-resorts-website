@@ -22,6 +22,12 @@ interface BookingConfirmationEmailData {
     channelFee: number
     total: number
     currency: string
+    discount?: {
+      type: "percent" | "fixed"
+      value: number
+      amount: number
+    }
+    discounted_subtotal?: number
   }
 }
 
@@ -382,6 +388,18 @@ function generateBookingConfirmationEmail(data: BookingConfirmationEmailData): s
             <span class="info-label">${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.nightlyRate.toFixed(2)} × ${nights} ${nights === 1 ? 'night' : 'nights'}</span>
             <span class="info-value">${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.subtotal.toFixed(2)}</span>
           </div>
+          ${pricing.discount && pricing.discount.amount > 0 ? `
+          <div class="pricing-row" style="color: #4CAF50;">
+            <span class="info-label">Discount ${pricing.discount.type === 'percent' ? `(${pricing.discount.value}%)` : ''}</span>
+            <span class="info-value" style="color: #4CAF50;">-${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.discount.amount.toFixed(2)}</span>
+          </div>
+          ${pricing.discounted_subtotal && pricing.discounted_subtotal !== pricing.subtotal ? `
+          <div class="pricing-row">
+            <span class="info-label">Subtotal (after discount)</span>
+            <span class="info-value">${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.discounted_subtotal.toFixed(2)}</span>
+          </div>
+          ` : ''}
+          ` : ''}
           ${pricing.cleaningFee > 0 ? `
           <div class="pricing-row">
             <span class="info-label">Cleaning Fee</span>
@@ -476,7 +494,7 @@ Guests: ${guests} ${guests === 1 ? 'guest' : 'guests'}
 PRICE SUMMARY
 -------------
 ${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.nightlyRate.toFixed(2)} × ${nights} ${nights === 1 ? 'night' : 'nights'}: ${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.subtotal.toFixed(2)}
-${pricing.cleaningFee > 0 ? `Cleaning Fee: ${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.cleaningFee.toFixed(2)}\n` : ''}Lodging Tax: ${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.tax.toFixed(2)}
+${pricing.discount && pricing.discount.amount > 0 ? `Discount ${pricing.discount.type === 'percent' ? `(${pricing.discount.value}%)` : ''}: -${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.discount.amount.toFixed(2)}\n${pricing.discounted_subtotal && pricing.discounted_subtotal !== pricing.subtotal ? `Subtotal (after discount): ${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.discounted_subtotal.toFixed(2)}\n` : ''}` : ''}${pricing.cleaningFee > 0 ? `Cleaning Fee: ${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.cleaningFee.toFixed(2)}\n` : ''}Lodging Tax: ${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.tax.toFixed(2)}
 Guest Channel Fee: ${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.channelFee.toFixed(2)}
 ─────────────────────────────
 Total: ${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.total.toFixed(2)}

@@ -35,6 +35,11 @@ interface ConfirmPaymentRequest {
     petFee: number
     total: number
     currency: string
+    discount?: {
+      type: "percent" | "fixed"
+      value: number
+      amount: number
+    }
   }
   guestInfo: {
     firstName: string
@@ -117,6 +122,13 @@ export async function POST(request: Request) {
         tax: roundToTwoDecimals(pricing.tax),
         channelFee: roundToTwoDecimals(pricing.channelFee),
         petFee: roundToTwoDecimals(pricing.petFee || 0),
+        // Include discount information if present
+        discount: pricing.discount ? {
+          type: pricing.discount.type,
+          value: pricing.discount.value,
+          amount: roundToTwoDecimals(pricing.discount.amount),
+        } : undefined,
+        discounted_subtotal: pricing.discounted_subtotal ? roundToTwoDecimals(pricing.discounted_subtotal) : undefined,
       }
     } else {
       // Fallback: pricing not provided (should not happen in normal flow)

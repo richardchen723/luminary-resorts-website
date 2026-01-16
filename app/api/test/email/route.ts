@@ -8,7 +8,7 @@ import { sendBookingConfirmationEmail } from "@/lib/email"
 
 export async function POST(request: Request) {
   try {
-    // Test booking data
+    // Test booking data with discount
     const testData = {
       guestName: "Yunhang Chen",
       guestEmail: "yunhang.chen@gmail.com",
@@ -19,12 +19,18 @@ export async function POST(request: Request) {
       nights: 2,
       guests: 2,
       pricing: {
-        nightlyRate: 180.00,
-        subtotal: 360.00,
+        nightlyRate: 200.00,
+        subtotal: 400.00,
+        discount: {
+          type: "percent" as const,
+          value: 15,
+          amount: 60.00,
+        },
+        discounted_subtotal: 340.00,
         cleaningFee: 100.00,
-        tax: 43.20,
-        channelFee: 7.20,
-        total: 510.40,
+        tax: 40.80, // 12% of discounted subtotal
+        channelFee: 6.80, // 2% of discounted subtotal
+        total: 487.60,
         currency: "USD",
       },
     }
