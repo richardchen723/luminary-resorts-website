@@ -231,22 +231,43 @@ export async function POST(request: Request) {
     // Run Migration 003
     try {
       console.log('Running Migration 003: Affiliate Marketing System...')
-      const statements = MIGRATION_003.split(';').filter(s => s.trim().length > 0)
-      
-      for (const statement of statements) {
-        const trimmed = statement.trim()
-        if (trimmed && !trimmed.startsWith('--')) {
-          try {
-            await query(trimmed)
-          } catch (error: any) {
-            // Ignore "already exists" errors
-            if (!error.message?.includes('already exists') && !error.message?.includes('duplicate')) {
-              console.warn('Migration 003 statement warning:', error.message)
+      // Execute the entire migration file as a single query
+      // This handles multi-line statements (functions, triggers) correctly
+      try {
+        await query(MIGRATION_003)
+        results.push('✅ Migration 003 completed successfully')
+      } catch (error: any) {
+        // If single query fails (e.g., some statements already exist), try statement by statement
+        if (error.message?.includes('syntax error') || error.message?.includes('unexpected')) {
+          // Fallback: split by semicolon for compatibility
+          const statements = MIGRATION_003.split(';').filter(s => s.trim().length > 0 && !s.trim().startsWith('--'))
+          
+          for (const statement of statements) {
+            const trimmed = statement.trim()
+            if (trimmed) {
+              try {
+                await query(trimmed)
+              } catch (stmtError: any) {
+                // Ignore "already exists" errors
+                if (!stmtError.message?.includes('already exists') && 
+                    !stmtError.message?.includes('duplicate') &&
+                    !stmtError.message?.includes('already defined')) {
+                  console.warn('Migration 003 statement warning:', stmtError.message)
+                }
+              }
             }
           }
+          results.push('✅ Migration 003 completed successfully (with warnings)')
+        } else {
+          // Ignore "already exists" errors for the whole migration
+          if (!error.message?.includes('already exists') && 
+              !error.message?.includes('duplicate') &&
+              !error.message?.includes('already defined')) {
+            throw error
+          }
+          results.push('✅ Migration 003 completed successfully (some objects may already exist)')
         }
       }
-      results.push('✅ Migration 003 completed successfully')
     } catch (error: any) {
       results.push(`❌ Migration 003 failed: ${error.message}`)
       throw error
@@ -262,6 +283,16 @@ export async function POST(request: Request) {
       )
       const tables = tablesResult.rows.map((row: any) => row.table_name)
       results.push(`✅ Verified tables: ${tables.join(', ')}`)
+      
+      // Check for affiliate marketing tables specifically
+      const expectedAffiliateTables = ['admin_users', 'influencers', 'incentive_rules', 'booking_attributions', 'commission_ledger', 'incentive_audit_log']
+      const affiliateTables = expectedAffiliateTables.filter(t => tables.includes(t))
+      if (affiliateTables.length === expectedAffiliateTables.length) {
+        results.push(`✅ All affiliate marketing tables verified: ${affiliateTables.join(', ')}`)
+      } else {
+        const missing = expectedAffiliateTables.filter(t => !tables.includes(t))
+        results.push(`⚠️ Missing affiliate marketing tables: ${missing.join(', ')}`)
+      }
     } catch (error: any) {
       results.push(`⚠️ Could not verify tables: ${error.message}`)
     }
