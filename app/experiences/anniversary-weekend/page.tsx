@@ -43,7 +43,7 @@ export default async function AnniversaryWeekendPage() {
         name: 'Which cabin is best for an anniversary weekend?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'All our cabins are perfect for anniversaries. Dew features a private pool perfect for romantic moments, Sol offers panoramic sunset views ideal for evening celebrations, Moss provides immersive forest views, and Mist offers lakefront serenity.',
+          text: 'All our cabins are perfect for anniversaries. Each features a private pool, sweeping hilltop views, romantic interiors, and complete privacy—perfect for celebrating your love. Select cabins feature skylights for stargazing, and all offer unique interior design styles that create an intimate, romantic setting unlike traditional vacation rentals.',
         },
       },
       {
@@ -113,7 +113,7 @@ export default async function AnniversaryWeekendPage() {
                   </div>
                   <h3 className="font-serif text-2xl mb-4">Romantic Settings</h3>
                   <p className="text-muted-foreground leading-relaxed">
-                    Private pools for evening dips, stargazing decks for late-night conversations, soaking tubs for relaxation, and panoramic views for watching sunsets together.
+                    Each cabin features a private pool for evening dips, stargazing opportunities (select cabins have skylights), standalone bathtubs for relaxation, and sweeping hilltop views for watching sunsets together. Unlike traditional vacation rentals, you'll have complete privacy and luxury amenities designed for romance.
                   </p>
                 </CardContent>
               </Card>

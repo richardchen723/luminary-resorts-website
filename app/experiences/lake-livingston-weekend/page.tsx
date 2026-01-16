@@ -35,7 +35,7 @@ export default async function LakeLivingstonWeekendPage() {
         name: 'How close is Luminary Resorts to Lake Livingston?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Luminary Resorts is located just 5 minutes from Lake Livingston, Texas\'s second-largest lake. One of our cabins (Mist) offers direct lakefront access with a private dock.',
+          text: 'Luminary Resorts is located just 5 minutes from Lake Livingston, Texas\'s second-largest lake. All our cabins are situated on a hilltop with sweeping views, offering easy access to the lake for day trips while providing complete privacy and luxury amenities.',
         },
       },
       {
@@ -43,7 +43,7 @@ export default async function LakeLivingstonWeekendPage() {
         name: 'What activities are available at Lake Livingston?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Lake Livingston offers boating, fishing, kayaking, paddleboarding, and peaceful lakeside walks. There\'s a boat launch just 5 minutes from our property, and Mist cabin has direct lake access.',
+          text: 'Lake Livingston offers boating, fishing, kayaking, paddleboarding, and peaceful lakeside walks. There\'s a boat launch just 5 minutes from our property, making it easy to enjoy lake activities during your stay.',
         },
       },
       {
@@ -51,7 +51,7 @@ export default async function LakeLivingstonWeekendPage() {
         name: 'Can we bring a boat?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Yes! There\'s a boat launch just 5 minutes away, and we have trailer parking available. Mist cabin offers direct lake access with a private dock.',
+          text: 'Yes! There\'s a boat launch just 5 minutes away, and we have trailer parking available. All our cabins are on a hilltop with easy access to the lake for day trips.',
         },
       },
     ],
@@ -92,7 +92,7 @@ export default async function LakeLivingstonWeekendPage() {
               Lake Livingston, Texas's second-largest lake, offers 90,000 acres of water perfect for boating, fishing, and peaceful lakeside moments. And you're just 5 minutes away.
             </p>
             <p className="text-lg leading-relaxed text-muted-foreground mb-6">
-              At Luminary Resorts, we've created the perfect Lake Livingston weekend getaway. Our luxury cabins combine easy lake access with complete privacy, luxury amenities, and stunning natural settings. One of our cabins (Mist) even offers direct lakefront access with a private dock.
+              At Luminary Resorts, we've created the perfect Lake Livingston weekend getaway. Our luxury cabins are situated on a hilltop just 5 minutes from the lake, combining easy access for day trips with complete privacy, luxury amenities, and stunning natural settings. Unlike traditional vacation rentals, each cabin features a private pool, sweeping views, and romantic interiors.
             </p>
             <p className="text-lg leading-relaxed text-muted-foreground">
               Whether you want to spend your days on the water or simply enjoy the peaceful lakeside atmosphere, our cabins provide the perfect base for your Lake Livingston adventure.
@@ -113,7 +113,7 @@ export default async function LakeLivingstonWeekendPage() {
                   </div>
                   <h3 className="font-serif text-2xl mb-4">Easy Lake Access</h3>
                   <p className="text-muted-foreground leading-relaxed">
-                    Just 5 minutes from Lake Livingston with a boat launch nearby. Mist cabin offers direct lakefront access with a private dock.
+                    Just 5 minutes from Lake Livingston with a boat launch nearby. All our cabins are on a hilltop with easy access to the lake for day trips, while providing complete privacy and luxury amenities.
                   </p>
                 </CardContent>
               </Card>
@@ -148,7 +148,7 @@ export default async function LakeLivingstonWeekendPage() {
         <div className="container mx-auto max-w-4xl">
           <h2 className="font-serif text-4xl md:text-5xl mb-8 text-center">Our Lake Livingston Cabins</h2>
           <p className="text-lg text-muted-foreground mb-12 text-center leading-relaxed">
-            All our cabins are just 5 minutes from Lake Livingston. Mist cabin offers direct lakefront access with a private dock.
+            All our cabins are just 5 minutes from Lake Livingston, situated on a hilltop with sweeping views. Each cabin features a private pool, complete privacy, and luxury amenities—perfect for combining lake activities with a romantic retreat.
           </p>
           <div className="grid md:grid-cols-2 gap-6">
             {cabins.map((cabin) => {
@@ -173,9 +173,6 @@ export default async function LakeLivingstonWeekendPage() {
                     <p className="text-muted-foreground mb-4 line-clamp-3">
                       {cabin.description}
                     </p>
-                    {cabin.slug === 'mist' && (
-                      <p className="text-sm text-primary mb-4 font-medium">✓ Direct lakefront access with private dock</p>
-                    )}
                     <Button asChild variant="outline" className="rounded-full w-full">
                       <Link href={`/stay/${cabin.slug}`}>View {cabin.name} Cabin</Link>
                     </Button>

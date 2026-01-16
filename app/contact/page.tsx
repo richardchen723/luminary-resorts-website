@@ -87,7 +87,7 @@ function ContactForm() {
       <Header />
 
       {/* Hero */}
-      <section className="relative h-[50vh] flex items-center justify-center mt-20">
+      <section className="relative h-[70vh] flex items-center justify-center mt-20">
         <div className="absolute inset-0">
           <img
             src="https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472339-nTitRCBzdlcfJPZ--RUuc4Z--3QS9V--DDwdL0Vm0RcW2M-69641a10e1ed8"

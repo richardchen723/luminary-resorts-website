@@ -29,7 +29,7 @@ export default async function PrivatePoolGetawayPage() {
         name: 'Which cabins have private pools?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Dew cabin features a private 18\' x 9\' pool (4.5\' deep) with stunning hilltop views. The pool is part of a private deck area with lounge chairs and complete privacy.',
+          text: 'All our cabins feature private pools. Dew cabin, featured on this page, has a private 18\' x 9\' pool (4.5\' deep) with stunning hilltop views. The pool is part of a private deck area with lounge chairs and complete privacy. Each cabin offers this unique luxury amenity.',
         },
       },
       {
@@ -86,7 +86,7 @@ export default async function PrivatePoolGetawayPage() {
               Imagine floating in your own private pool, surrounded by bamboo and forest, with panoramic views of the Texas Hill Country stretching out before you. No crowds, no shared spaces—just you, your partner, and complete privacy.
             </p>
             <p className="text-lg leading-relaxed text-muted-foreground mb-6">
-              At Luminary Resorts, Dew cabin offers exactly that: a private 18' x 9' pool (4.5' deep) set on a hilltop deck with stunning views. The pool is surrounded by bamboo and privacy fences, ensuring complete seclusion for your romantic getaway.
+              At Luminary Resorts, all our cabins feature private pools—a luxury you won't find in traditional vacation rentals. Dew cabin, featured on this page, offers a private 18' x 9' pool (4.5' deep) set on a hilltop deck with stunning views. The pool is surrounded by bamboo and privacy fences, ensuring complete seclusion for your romantic getaway.
             </p>
             <p className="text-lg leading-relaxed text-muted-foreground">
               Whether you want to cool off on a warm day, float under the stars, or simply enjoy the luxury of having your own private pool, Dew cabin provides the perfect setting for an unforgettable couples' escape.

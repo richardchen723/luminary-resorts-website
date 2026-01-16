@@ -124,7 +124,7 @@ export default async function DigitalDetoxPage() {
                   </div>
                   <h3 className="font-serif text-2xl mb-4">Nature Immersion</h3>
                   <p className="text-muted-foreground leading-relaxed">
-                    Floor-to-ceiling windows bring nature inside. Stargazing decks, forest views, and lake access invite you to connect with the natural world.
+                    Floor-to-ceiling windows bring nature inside. Stargazing opportunities (select cabins feature skylights), sweeping hilltop views of the East Texas forest, and complete immersion in natural surroundings invite you to connect with the natural world. Lake Livingston is just 5 minutes away for day trips.
                   </p>
                 </CardContent>
               </Card>

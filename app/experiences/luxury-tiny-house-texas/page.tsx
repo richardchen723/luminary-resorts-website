@@ -35,7 +35,7 @@ export default async function LuxuryTinyHousePage() {
         name: 'What makes these luxury tiny houses different?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Our luxury tiny houses combine the intimacy and efficiency of tiny house living with high-end amenities like private pools, floor-to-ceiling windows, premium bedding, and thoughtful design. Each cabin is designed for couples seeking both luxury and connection.',
+          text: 'Our luxury tiny houses combine the intimacy and efficiency of tiny house living with high-end amenities like private pools in each cabin, floor-to-ceiling windows with sweeping hilltop views, premium bedding, Asian Zen-inspired design, and thoughtful design. Each cabin is designed for couples seeking both luxury and connection, unlike traditional vacation rentals.',
         },
       },
       {
@@ -100,7 +100,7 @@ export default async function LuxuryTinyHousePage() {
               Tiny house living has captured the imagination of many—the simplicity, the efficiency, the freedom from excess. But what if you could have all of that with the luxury and comfort you deserve?
             </p>
             <p className="text-lg leading-relaxed text-muted-foreground mb-6">
-              At Luminary Resorts, we've reimagined tiny house living for couples. Our four luxury tiny house cabins combine the intimacy and thoughtful design of tiny homes with premium amenities like private pools, floor-to-ceiling windows, soaking tubs, and stunning natural settings.
+              At Luminary Resorts, we've reimagined tiny house living for couples. Our four luxury tiny house cabins combine the intimacy and thoughtful design of tiny homes with premium amenities like private pools in each cabin, floor-to-ceiling windows with sweeping hilltop views, standalone bathtubs, Asian Zen-inspired design, and stunning natural settings. Unlike traditional vacation rentals, you'll experience complete privacy and luxury in a nature-immersed setting.
             </p>
             <p className="text-lg leading-relaxed text-muted-foreground">
               Located just 1 hour from Houston in Coldspring, Texas, our luxury tiny houses offer the perfect escape for couples seeking romance, healing, or simply a different way of being together. Each cabin is designed to maximize space, light, and connection—both with each other and with nature.
@@ -156,7 +156,7 @@ export default async function LuxuryTinyHousePage() {
         <div className="container mx-auto max-w-4xl">
           <h2 className="font-serif text-4xl md:text-5xl mb-8 text-center">Our Luxury Tiny Houses</h2>
           <p className="text-lg text-muted-foreground mb-12 text-center leading-relaxed">
-            Each of our four luxury tiny house cabins offers a unique experience, from private pools to forest views to lakefront access.
+            Each of our four luxury tiny house cabins offers a unique experience with private pools, sweeping hilltop views, romantic interiors, and complete privacy. Select cabins feature skylights for stargazing, and all offer thoughtful design that maximizes space and connection with nature.
           </p>
           <div className="grid md:grid-cols-2 gap-6">
             {cabins.map((cabin) => {
@@ -191,7 +191,7 @@ export default async function LuxuryTinyHousePage() {
           </div>
           <div className="text-center mt-8">
             <Button asChild size="lg" className="rounded-full">
-              <Link href="/stays">Compare All Cabins</Link>
+              <Link href="/#cabins">Explore Our Cabins</Link>
             </Button>
           </div>
         </div>

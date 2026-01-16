@@ -20,12 +20,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/stays`,
-      lastModified: currentDate,
-      changeFrequency: 'weekly' as const,
-      priority: 0.9,
-    },
-    {
       url: `${baseUrl}/about`,
       lastModified: currentDate,
       changeFrequency: 'monthly' as const,
@@ -62,11 +56,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // Experience pages
   const experiencePages = [
     'romantic-getaway-near-houston',
+    'romantic-getaway-near-dallas',
+    'romantic-getaway-near-austin',
+    'romantic-getaway-near-san-antonio',
     'luxury-tiny-house-texas',
     'anniversary-weekend',
     'digital-detox-nature-reset',
     'lake-livingston-weekend',
     'private-pool-getaway',
+    'nature-healing-wellness',
   ].map((slug) => ({
     url: `${baseUrl}/experiences/${slug}`,
     lastModified: currentDate,

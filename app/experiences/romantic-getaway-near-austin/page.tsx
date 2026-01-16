@@ -11,12 +11,12 @@ import { getAllCabinsFromHostaway } from "@/lib/cabin-cache"
 import { Heart, MapPin, Calendar } from "lucide-react"
 
 export const metadata: Metadata = generateSEOMetadata({
-  title: 'Romantic Getaway Near Houston | Luxury Cabins 1 Hour Away | Luminary Resorts',
-  description: 'Ultimate romantic getaway 1 hour from Houston. Private pools, floor-to-ceiling windows, complete seclusion. Perfect for anniversaries, proposals, and reconnection. Book now.',
-  path: '/experiences/romantic-getaway-near-houston',
+  title: 'Romantic Getaway Near Austin | Luxury Cabins 3 Hours Away | Luminary Resorts',
+  description: 'Ultimate romantic getaway 3 hours from Austin. Private pools, floor-to-ceiling windows, complete seclusion. Perfect for anniversaries, proposals, and reconnection. Book now.',
+  path: '/experiences/romantic-getaway-near-austin',
 })
 
-export default async function RomanticGetawayPage() {
+export default async function RomanticGetawayAustinPage() {
   const cabins = await getAllCabinsFromHostaway()
 
   // Define specific cover images for each cabin (same as home page)
@@ -32,10 +32,10 @@ export default async function RomanticGetawayPage() {
     mainEntity: [
       {
         '@type': 'Question',
-        name: 'How far is Luminary Resorts from Houston?',
+        name: 'How far is Luminary Resorts from Austin?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Luminary Resorts is located just 1 hour (60 miles) from Houston, making it the perfect romantic getaway destination for couples seeking a quick escape from the city.',
+          text: 'Luminary Resorts is located just 3 hours from Austin, making it the perfect romantic getaway destination for couples seeking an escape from the city.',
         },
       },
       {
@@ -82,7 +82,7 @@ export default async function RomanticGetawayPage() {
       <section className="relative h-[70vh] flex items-center justify-center mt-20 overflow-hidden">
         <div className="absolute inset-0">
           <Image
-            src="https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-2VoxPw1ogFm--GFueKZyM--b9BvwcrnFQxchXfq28rNto-69641991b0aab"
+            src="https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/7dd4c75a-f44c-4b7d-8b1a-8026666dbafd.jpeg?aki_policy=xx_large"
             alt="Romantic getaway cabin"
             fill
             className="object-cover"
@@ -92,9 +92,9 @@ export default async function RomanticGetawayPage() {
           <div className="absolute inset-0 bg-foreground/40" />
         </div>
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto text-white">
-          <h1 className="font-serif text-5xl md:text-6xl mb-6">Romantic Getaway for Couples Near Houston</h1>
+          <h1 className="font-serif text-5xl md:text-6xl mb-6">Romantic Getaway for Couples Near Austin</h1>
           <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed">
-            Escape the city and reconnect in complete privacy. Just 1 hour from Houston, our luxury cabins offer the perfect setting for romance, intimacy, and deep connection.
+            Escape the city and reconnect in complete privacy. Just 3 hours from Austin, our luxury cabins offer the perfect setting for romance, intimacy, and deep connection.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg" className="rounded-full">
@@ -115,7 +115,7 @@ export default async function RomanticGetawayPage() {
               In the rush of daily life, it's easy to lose sight of what matters most—the connection between you and your partner. You long for a space where time slows down, where you can look into each other's eyes without a screen between you, where the only agenda is being present together.
             </p>
             <p className="text-lg leading-relaxed text-muted-foreground mb-6">
-              Luminary Resorts at Hilltop offers exactly that. Located just 1 hour from Houston, our luxury tiny house retreat provides couples with the perfect romantic getaway—a sanctuary where you can escape the noise, reconnect with each other, and remember what it feels like to simply be together.
+              Luminary Resorts at Hilltop offers exactly that. Located just 3 hours from Austin, our luxury tiny house retreat provides couples with the perfect romantic getaway—a sanctuary where you can escape the noise, reconnect with each other, and remember what it feels like to simply be together.
             </p>
             <p className="text-lg leading-relaxed text-muted-foreground">
               Our four intimate cabins are designed with one purpose: to create space for love to breathe. Each cabin offers complete privacy, luxury amenities, and stunning natural surroundings that invite you to slow down, be present, and deepen your bond.
@@ -148,7 +148,7 @@ export default async function RomanticGetawayPage() {
                   </div>
                   <h3 className="font-serif text-2xl mb-4">Perfect Proximity</h3>
                   <p className="text-muted-foreground leading-relaxed">
-                    Just 1 hour from Houston, you can escape the city without the stress of a long journey. Perfect for spontaneous weekend getaways or planned romantic retreats.
+                    Just 3 hours from Austin, you can escape the city for a weekend getaway. Perfect for planned romantic retreats and special occasions.
                   </p>
                 </CardContent>
               </Card>
@@ -215,8 +215,8 @@ export default async function RomanticGetawayPage() {
             <div className="flex items-start gap-3">
               <Heart className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
               <div>
-                <h3 className="font-serif text-xl mb-2">Spontaneous Escapes</h3>
-                <p className="text-muted-foreground">Close enough for a last-minute weekend getaway when you need it most.</p>
+                <h3 className="font-serif text-xl mb-2">Weekend Escapes</h3>
+                <p className="text-muted-foreground">Perfect for a weekend getaway when you need time away together.</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -313,7 +313,7 @@ export default async function RomanticGetawayPage() {
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="font-serif text-4xl md:text-5xl mb-6">Location & Getting Here</h2>
             <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-              Luminary Resorts is located in Coldspring, Texas, just 1 hour from Houston. Our hilltop setting offers rare elevated views and complete privacy, making it the perfect romantic escape.
+              Luminary Resorts is located in Coldspring, Texas, just 3 hours from Austin. Our hilltop setting offers rare elevated views and complete privacy, making it the perfect romantic escape.
             </p>
             <Button asChild size="lg" variant="outline" className="rounded-full">
               <Link href="/location">View Location Details</Link>
@@ -329,9 +329,9 @@ export default async function RomanticGetawayPage() {
           <div className="space-y-6">
             <Card>
               <CardContent className="p-6">
-                <h3 className="font-serif text-xl mb-3">How far is Luminary Resorts from Houston?</h3>
+                <h3 className="font-serif text-xl mb-3">How far is Luminary Resorts from Austin?</h3>
                 <p className="text-muted-foreground">
-                  Luminary Resorts is located just 1 hour (60 miles) from Houston, making it the perfect romantic getaway destination for couples seeking a quick escape from the city.
+                  Luminary Resorts is located just 3 hours from Austin, making it the perfect romantic getaway destination for couples seeking an escape from the city.
                 </p>
               </CardContent>
             </Card>
@@ -376,7 +376,7 @@ export default async function RomanticGetawayPage() {
         <div className="container mx-auto px-4 text-center">
           <h2 className="font-serif text-4xl md:text-5xl mb-6">Book Your Romantic Getaway</h2>
           <p className="text-xl mb-8 max-w-2xl mx-auto opacity-90">
-            Escape the city and reconnect with your partner. Just 1 hour from Houston, your perfect romantic retreat awaits.
+            Escape the city and reconnect with your partner. Just 3 hours from Austin, your perfect romantic retreat awaits.
           </p>
           <Button asChild size="lg" className="rounded-full bg-primary-foreground text-primary hover:opacity-90">
             <Link href="/#booking">Check Availability Now</Link>

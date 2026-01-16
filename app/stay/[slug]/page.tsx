@@ -154,12 +154,12 @@ export default async function CabinDetailPage({ params }: PageProps) {
               {/* Unique Content Blocks */}
               {cabin.slug === "moss" && (
                 <div className="mt-12">
-                  <h3 className="font-serif text-3xl mb-6">Immersive Forest Experience</h3>
+                  <h3 className="font-serif text-3xl mb-6">Immersive Forest Experience & Contemporary Design</h3>
                   <p className="text-lg leading-relaxed text-muted-foreground mb-4">
-                    Moss cabin's floor-to-ceiling windows create a unique experience where the forest becomes part of your living space. Wake up to treetops at eye level, watch the light change throughout the day, and feel completely immersed in nature while enjoying the comfort of a luxury cabin.
+                    Moss cabin's floor-to-ceiling windows create a unique experience where the forest becomes part of your living space. Wake up to treetops at eye level, watch the light change throughout the day, and feel completely immersed in nature while enjoying the comfort of a luxury cabin. Unlike traditional vacation rentals, you'll have a private pool, complete privacy, and contemporary design.
                   </p>
                   <p className="text-lg leading-relaxed text-muted-foreground">
-                    This contemporary glass sanctuary is perfect for couples who want to feel connected to nature without sacrificing luxury or comfort. The automated blinds provide privacy when you want it, but when open, you're living in the forest.
+                    This contemporary glass sanctuary is perfect for couples who want to feel connected to nature without sacrificing luxury or comfort. The automated blinds provide privacy when you want it, but when open, you're living in the forest. The hilltop location provides sweeping views while maintaining complete seclusion.
                   </p>
                 </div>
               )}
@@ -168,7 +168,7 @@ export default async function CabinDetailPage({ params }: PageProps) {
                 <div className="mt-12">
                   <h3 className="font-serif text-3xl mb-6">Private Pool & Asian Zen Design</h3>
                   <p className="text-lg leading-relaxed text-muted-foreground mb-4">
-                    Dew cabin offers the ultimate luxury: your own private 18' x 9' pool set on a hilltop deck with panoramic views. The Asian Zen-inspired design creates a serene, calming atmosphere perfect for couples seeking both romance and tranquility.
+                    Dew cabin offers the ultimate luxury: your own private 18' x 9' pool set on a hilltop deck with panoramic views. The Asian Zen-inspired design creates a serene, calming atmosphere perfect for couples seeking both romance and tranquility. Unlike traditional vacation rentals, you'll have complete privacy and luxury amenities.
                   </p>
                   <p className="text-lg leading-relaxed text-muted-foreground mb-4">
                     The bamboo courtyard, skylight over the bed, and wall-to-wall windows create a space that feels both intimate and expansive. Float in your private pool, watch sunsets from the deck, and experience complete privacy in this thoughtfully designed retreat.
@@ -181,24 +181,24 @@ export default async function CabinDetailPage({ params }: PageProps) {
 
               {cabin.slug === "sol" && (
                 <div className="mt-12">
-                  <h3 className="font-serif text-3xl mb-6">Panoramic Sunset Views</h3>
+                  <h3 className="font-serif text-3xl mb-6">Panoramic Hilltop Views & Stargazing</h3>
                   <p className="text-lg leading-relaxed text-muted-foreground mb-4">
-                    Perched at the highest point of our property, Sol cabin offers the most spectacular panoramic views. Watch the sky transform during sunset from your private terrace, stargaze from the dedicated deck, and experience the beauty of the Texas Hill Country from an elevated perspective.
+                    Perched at the highest point of our hilltop property, Sol cabin offers the most spectacular panoramic views. Watch the sky transform during sunset from your private terrace, stargaze from the dedicated deck and through the skylight, and experience the beauty of the Texas Hill Country from an elevated perspective. Unlike traditional vacation rentals, you'll have complete privacy and luxury amenities.
                   </p>
                   <p className="text-lg leading-relaxed text-muted-foreground">
-                    The freestanding soaking tub with views, combined with the stargazing deck, makes Sol perfect for couples seeking a romantic, elevated experience. This is where you come to watch the world from above and reconnect with each other under the stars.
+                    The freestanding soaking tub with views, combined with the stargazing deck and skylight, makes Sol perfect for couples seeking a romantic, elevated experience. This is where you come to watch the world from above and reconnect with each other under the stars.
                   </p>
                 </div>
               )}
 
               {cabin.slug === "mist" && (
                 <div className="mt-12">
-                  <h3 className="font-serif text-3xl mb-6">Lakefront Serenity</h3>
+                  <h3 className="font-serif text-3xl mb-6">Sweeping Hilltop Views & Romantic Interiors</h3>
                   <p className="text-lg leading-relaxed text-muted-foreground mb-4">
-                    Mist cabin offers direct access to the water with a private dock, making it perfect for couples who love lake activities or simply want to wake up to morning mist on the water. Just 5 minutes from Lake Livingston, this cabin combines lakefront living with luxury amenities.
+                    Mist cabin offers sweeping hilltop views of the East Texas forest, making it perfect for couples seeking romance and tranquility. Situated on our hilltop property, this cabin combines luxury amenities with complete privacy and stunning natural surroundings. Just 5 minutes from Lake Livingston, you can easily enjoy lake activities during day trips.
                   </p>
                   <p className="text-lg leading-relaxed text-muted-foreground">
-                    Ideal for <Link href="/experiences/lake-livingston-weekend" className="text-primary hover:underline">Lake Livingston weekend getaways</Link>, Mist provides the perfect base for boating, fishing, or simply enjoying the peaceful lakeside atmosphere. The private dock and waterfront views create a serene setting for your romantic escape.
+                    Ideal for <Link href="/experiences/lake-livingston-weekend" className="text-primary hover:underline">Lake Livingston weekend getaways</Link>, Mist provides the perfect base for combining lake activities with a romantic retreat. The private pool, skylight for stargazing, and sweeping views create a serene setting for your romantic escape, unlike traditional vacation rentals.
                   </p>
                 </div>
               )}
@@ -240,15 +240,15 @@ export default async function CabinDetailPage({ params }: PageProps) {
                   <Card>
                     <CardContent className="p-6">
                       <h4 className="font-serif text-xl mb-2">
-                        <Link href="/stays" className="hover:text-primary transition-colors">
-                          Compare All Cabins
+                        <Link href="/#cabins" className="hover:text-primary transition-colors">
+                          Explore Our Cabins
                         </Link>
                       </h4>
                       <p className="text-sm text-muted-foreground mb-4">
-                        See how {cabin.name} compares to our other luxury cabins.
+                        Discover all our luxury cabins, each with private pools and unique design.
                       </p>
                       <Button asChild variant="outline" size="sm" className="rounded-full">
-                        <Link href="/stays">View All Cabins</Link>
+                        <Link href="/#cabins">View All Cabins</Link>
                       </Button>
                     </CardContent>
                   </Card>

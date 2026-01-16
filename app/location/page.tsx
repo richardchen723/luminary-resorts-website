@@ -92,7 +92,7 @@ export default function LocationPage() {
       <Header />
 
       {/* Hero */}
-      <section className="relative h-[60vh] flex items-center justify-center mt-20">
+      <section className="relative h-[70vh] flex items-center justify-center mt-20">
         <div className="absolute inset-0">
           <img
             src="https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472339-Vo7D--hPsCCHlqaYlMuWhXSRlEwgRId62ZAYR0h7Wwv4-696419c3b1e2a"
@@ -493,7 +493,7 @@ export default function LocationPage() {
           </div>
           <div className="text-center mt-8">
             <Button asChild size="lg" className="rounded-full">
-              <Link href="/stays">Compare All Cabins</Link>
+              <Link href="/#cabins">Explore Our Cabins</Link>
             </Button>
           </div>
         </div>

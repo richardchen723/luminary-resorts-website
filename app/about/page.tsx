@@ -16,7 +16,7 @@ export default function AboutPage() {
       <Header />
 
       {/* Hero */}
-      <section className="relative h-[60vh] flex items-center justify-center mt-20">
+      <section className="relative h-[70vh] flex items-center justify-center mt-20">
         <div className="absolute inset-0">
           <img
             src="https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/914f82ae-397a-4a91-ada2-ad199f810403.jpeg?aki_policy=xx_large"

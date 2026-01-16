@@ -146,7 +146,7 @@ export function BookingWidget({ className = "" }: { className?: string }) {
               id="guests"
               value={guests}
               onChange={(e) => setGuests(e.target.value)}
-              className="w-full px-4 py-3 rounded-md border border-input bg-background focus:ring-2 focus:ring-ring focus:outline-none"
+              className="w-full px-4 py-3 rounded-md border border-input bg-background focus:ring-2 focus:ring-ring focus:outline-none appearance-none cursor-pointer"
             >
               <option value="1">1 Guest</option>
               <option value="2">2 Guests</option>
