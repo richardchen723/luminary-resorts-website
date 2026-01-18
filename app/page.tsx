@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { getAllCabinsFromHostaway } from "@/lib/cabin-cache"
 import { JsonLd } from "@/components/json-ld"
 import { WhyBookDirect } from "@/components/why-book-direct"
+import { defaultOgImage } from "@/lib/seo"
 
 export default async function HomePage() {
   // Fetch real cabin data from Hostaway (with static fallback)
@@ -27,7 +28,7 @@ export default async function HomePage() {
     description: 'Luxury tiny house retreat for couples in Coldspring, Texas. Four intimate cabins with private pools, floor-to-ceiling windows, and complete seclusion.',
     url: 'https://luminaryresorts.com',
     logo: 'https://luminaryresorts.com/icon.png',
-    image: 'https://luminaryresorts.com/og-image.jpg',
+    image: defaultOgImage,
     address: {
       '@type': 'PostalAddress',
       streetAddress: '50 Snowhill Rd',

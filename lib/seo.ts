@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 
 const baseUrl = 'https://luminaryresorts.com'
 const siteName = 'Luminary Resorts at Hilltop'
+// Default OG image - uses the homepage hero banner image (first image in rotation)
+export const defaultOgImage = 'https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-2VoxPw1ogFm--GFueKZyM--b9BvwcrnFQxchXfq28rNto-69641991b0aab'
 
 export interface SEOConfig {
   title: string
@@ -16,7 +18,7 @@ export function generateMetadata(config: SEOConfig): Metadata {
   const { title, description, path, image, noindex, canonical } = config
   
   const url = `${baseUrl}${path}`
-  const ogImage = image || `${baseUrl}/og-image.jpg`
+  const ogImage = image || defaultOgImage
   
   return {
     title,
@@ -65,6 +67,6 @@ export function getCabinSEO(cabin: { name: string; slug: string; description: st
   return {
     title,
     description,
-    image: cabin.images?.[0] || `${baseUrl}/og-image.jpg`,
+    image: cabin.images?.[0] || defaultOgImage,
   }
 }
