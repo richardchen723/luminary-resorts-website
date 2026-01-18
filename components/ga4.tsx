@@ -12,21 +12,22 @@ export function GA4({ measurementId }: GA4Props) {
 
   return (
     <>
-      {/* Google tag (gtag.js) */}
+      {/* Google tag (gtag.js) - Load lazily to improve initial page performance */}
       <Script
-        async
         src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
-        strategy="afterInteractive"
+        strategy="lazyOnload"
       />
       <Script
         id="ga4-init"
-        strategy="afterInteractive"
+        strategy="lazyOnload"
         dangerouslySetInnerHTML={{
           __html: `
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('config', '${gaId}');
+            gtag('config', '${gaId}', {
+              page_path: window.location.pathname,
+            });
           `,
         }}
       />

@@ -47,6 +47,8 @@ export function HomeHero() {
             }`}
             sizes="100vw"
             priority={index === 0}
+            loading={index === 0 ? undefined : "lazy"}
+            quality={85}
           />
         ))}
         <div className="absolute inset-0 atmospheric-overlay" />

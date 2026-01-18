@@ -48,6 +48,8 @@ export function CabinImageGallery({ images, cabinName, showHero = false, heroTit
                   fill
                   className="object-cover group-hover:scale-105 transition-transform duration-700"
                   sizes={idx === 0 ? "(max-width: 768px) 100vw, 66vw" : "(max-width: 768px) 100vw, 33vw"}
+                  loading="lazy"
+                  quality={85}
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
               </div>

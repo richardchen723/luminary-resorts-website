@@ -9,12 +9,16 @@ const quicksand = Quicksand({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
   variable: "--font-sans",
+  display: "swap",
+  preload: true,
 })
 
 const dancingScript = Dancing_Script({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-script",
+  display: "swap",
+  preload: false,
 })
 
 export const metadata: Metadata = {
@@ -55,6 +59,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* Preconnect to external domains for faster resource loading */}
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="preconnect" href="https://hostaway-platform.s3.us-west-2.amazonaws.com" />
+        <link rel="dns-prefetch" href="https://a0.muscache.com" />
+      </head>
       <body className={`${quicksand.variable} ${dancingScript.variable} font-sans antialiased`}>
         <GA4 />
         {children}

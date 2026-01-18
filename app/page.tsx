@@ -119,7 +119,8 @@ export default async function HomePage() {
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-700"
                         sizes="(max-width: 768px) 100vw, 33vw"
-                        priority
+                        loading="lazy"
+                        quality={85}
                       />
                       {/* Gradient overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-foreground/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
