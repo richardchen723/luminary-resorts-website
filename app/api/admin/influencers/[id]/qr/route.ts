@@ -9,12 +9,14 @@ import QRCode from "qrcode"
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     await requireAuthApi(request)
 
-    const influencer = await getInfluencerById(params.id)
+    // Handle params as Promise (Next.js 15+) or object (Next.js 14)
+    const resolvedParams = params instanceof Promise ? await params : params
+    const influencer = await getInfluencerById(resolvedParams.id)
 
     if (!influencer) {
       return NextResponse.json(

@@ -83,6 +83,42 @@ export default function InfluencerDetailPage() {
     }
   }
 
+  async function downloadQRCode() {
+    try {
+      const response = await fetch(`/api/admin/influencers/${params.id}/qr`)
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Failed to download QR code" }))
+        throw new Error(errorData.error || "Failed to download QR code")
+      }
+
+      // Check if response is actually an image
+      const contentType = response.headers.get("content-type")
+      if (!contentType || !contentType.startsWith("image/")) {
+        const errorData = await response.json().catch(() => ({ error: "Invalid response format" }))
+        throw new Error(errorData.error || "Server returned invalid format")
+      }
+
+      // Get the blob from the response
+      const blob = await response.blob()
+      
+      // Create a temporary download link
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `qr-${influencer?.referral_code || "code"}.png`
+      document.body.appendChild(link)
+      link.click()
+      
+      // Clean up
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error: any) {
+      console.error("Error downloading QR code:", error)
+      alert(error.message || "Failed to download QR code")
+    }
+  }
+
   if (loading) {
     return <div className="text-center py-8">Loading...</div>
   }
@@ -189,14 +225,13 @@ export default function InfluencerDetailPage() {
                     height={150}
                     className="border rounded"
                   />
-                  <Button asChild variant="outline" size="sm">
-                    <a
-                      href={`/api/admin/influencers/${params.id}/qr`}
-                      download
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download
-                    </a>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={downloadQRCode}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download
                   </Button>
                 </div>
               </div>
