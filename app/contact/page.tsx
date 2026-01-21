@@ -132,7 +132,7 @@ function ContactForm() {
                   <MapPin className="w-6 h-6 text-primary" />
                 </div>
                 <h3 className="font-serif text-lg mb-2">Location</h3>
-                <p className="text-muted-foreground">Coldspring, TX</p>
+                <p className="text-muted-foreground">50 Snowhill Rd, Coldspring TX, 77331</p>
               </CardContent>
             </Card>
           </div>

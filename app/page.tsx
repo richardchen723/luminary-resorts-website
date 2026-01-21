@@ -42,7 +42,7 @@ export default async function HomePage() {
       latitude: '30.5885',
       longitude: '-95.1294',
     },
-    telephone: '+14045908346',
+    telephone: '(404) 590-8346',
     priceRange: '$$$',
     amenityFeature: [
       {

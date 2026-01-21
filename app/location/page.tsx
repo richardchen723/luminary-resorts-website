@@ -32,7 +32,7 @@ export default function LocationPage() {
         name: 'What is the address of Luminary Resorts?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Luminary Resorts at Hilltop is located at 50 Snowhill Rd, Coldspring, TX 77331.',
+          text: 'Luminary Resorts at Hilltop is located at 50 Snowhill Rd, Coldspring TX, 77331.',
         },
       },
       {
@@ -68,7 +68,7 @@ export default function LocationPage() {
     name: 'Luminary Resorts at Hilltop',
     description: 'Luxury tiny house retreat for couples in Coldspring, Texas. Four intimate cabins with private pools, floor-to-ceiling windows, and complete seclusion.',
     url: 'https://luminaryresorts.com',
-    telephone: '+14045908346',
+    telephone: '(404) 590-8346',
     address: {
       '@type': 'PostalAddress',
       streetAddress: '50 Snowhill Rd',

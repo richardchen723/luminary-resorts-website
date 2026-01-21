@@ -56,11 +56,11 @@ function getCabinAddress(cabinName: string): string {
   if (cabinLower.includes("moss")) {
     return "50 Snowhill Rd, Coldspring TX, 77331"
   } else if (cabinLower.includes("mist")) {
-    return "100 Snowhill Rd, Coldspring TX, 77331"
+    return "50 Snowhill Rd, Coldspring TX, 77331"
   } else if (cabinLower.includes("sol")) {
-    return "150 Snowhill Rd, Coldspring TX, 77331"
+    return "50 Snowhill Rd, Coldspring TX, 77331"
   } else if (cabinLower.includes("dew")) {
-    return "200 Snowhill Rd, Coldspring TX, 77331"
+    return "50 Snowhill Rd, Coldspring TX, 77331"
   }
   // Default address
   return "50 Snowhill Rd, Coldspring TX, 77331"

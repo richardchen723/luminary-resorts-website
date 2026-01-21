@@ -72,7 +72,10 @@ export function Footer() {
                   Get in Touch
                 </Link>
               </li>
-              <li className="text-primary-foreground/80">Coldspring TX</li>
+              <li className="text-primary-foreground/80">
+                <a href="tel:+14045908346" className="hover:text-primary-foreground transition-colors">(404) 590-8346</a>
+              </li>
+              <li className="text-primary-foreground/80">50 Snowhill Rd, Coldspring TX, 77331</li>
             </ul>
           </div>
         </div>
@@ -83,13 +86,13 @@ export function Footer() {
           </p>
           <div className="flex gap-6">
             <Link
-              href="#"
+              href="/privacy"
               className="text-primary-foreground/60 hover:text-primary-foreground text-sm transition-colors"
             >
               Privacy Policy
             </Link>
             <Link
-              href="#"
+              href="/terms"
               className="text-primary-foreground/60 hover:text-primary-foreground text-sm transition-colors"
             >
               Terms of Service
