@@ -20,6 +20,7 @@ export interface CalendarDateInfo {
   minimumStay: number | null
   price: number | null
   currency: string | null
+  unavailableReason: string | null // Human-readable reason why date is unavailable (for tooltips)
 }
 
 /**
@@ -85,6 +86,7 @@ export function calculateCalendarStatus(
     minimumStay: null,
     price: null,
     currency: "USD",
+    unavailableReason: null,
   }
   
   // If no entry exists, assume available (optimistic availability)
@@ -136,6 +138,7 @@ export function calculateCalendarStatus(
       minimumStay,
       price: entry.price || null,
       currency: "USD",
+      unavailableReason: "Fully booked",
     }
   }
   
@@ -149,6 +152,7 @@ export function calculateCalendarStatus(
       minimumStay,
       price: entry.price || null,
       currency: "USD",
+      unavailableReason: "Fully booked",
     }
   }
   
@@ -162,6 +166,7 @@ export function calculateCalendarStatus(
       minimumStay,
       price: entry.price || null,
       currency: "USD",
+      unavailableReason: "Fully booked",
     }
   }
   
@@ -175,6 +180,7 @@ export function calculateCalendarStatus(
       minimumStay,
       price: entry.price || null,
       currency: "USD",
+      unavailableReason: "Check-in unavailable — another guest checking in",
     }
   }
   
@@ -218,6 +224,7 @@ export function calculateCalendarStatus(
           minimumStay,
           price: entry.price || null,
           currency: "USD",
+          unavailableReason: `Minimum stay is ${minimumStay} ${minimumStay === 1 ? 'night' : 'nights'}`,
         }
       }
     }
@@ -232,6 +239,7 @@ export function calculateCalendarStatus(
     minimumStay,
     price: entry.price || null,
     currency: "USD",
+    unavailableReason: null,
   }
 }
 

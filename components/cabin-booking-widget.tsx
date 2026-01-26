@@ -9,6 +9,7 @@ import { Calendar as CalendarIcon, Users, Loader2, DollarSign, AlertCircle, X, X
 import { getListingIdBySlug } from "@/lib/listing-map"
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { format, isSameDay, addMonths, startOfMonth, endOfMonth, isBefore, startOfDay, eachDayOfInterval, parseISO } from "date-fns"
 import type { DateRange } from "react-day-picker"
 import type { HostawayCalendarEntry } from "@/types/hostaway"
@@ -669,6 +670,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
 
   // Custom DayButton component with three-state rendering
   // Extends the default CalendarDayButton with status-based styling
+  // Shows visual distinctions: booked dates (crossed out), ineligible dates (grayed), with tooltips
   const CustomDayButton = useCallback((props: React.ComponentProps<typeof DayButton>) => {
     const { day, modifiers, className, ...restProps } = props
     
@@ -688,19 +690,33 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
       dateInfo = calculateCalendarStatus(date, calendarData, checkInDate, nextCheckInMap)
     }
 
+    // Check if date is in the past
+    const today = startOfDay(new Date())
+    const dateToCheck = startOfDay(date)
+    const isPastDate = isBefore(dateToCheck, today)
+    
+    // Determine if date is booked (solid-block) vs ineligible (checkout-only when no check-in)
+    const isBooked = dateInfo?.status === "solid-block"
+    const isIneligible = dateInfo?.status === "checkout-only" && !checkIn
+    // Only show tooltip for ineligible dates (grayed out), not for booked or open dates
+    const hasUnavailableReason = isIneligible && dateInfo?.unavailableReason
+
     // Determine additional styling based on status
-    // Use data attributes for CSS targeting instead of complex overlays
+    // Booked dates: grayed out with lower opacity
+    // Ineligible dates: grayed out but slightly higher opacity
     const statusClassNames = {
-      "solid-block": "bg-muted/50 text-muted-foreground opacity-50",
+      "solid-block": "bg-muted/50 text-muted-foreground opacity-50 relative",
       "checkout-only": checkIn 
         ? "opacity-75" 
-        : "bg-muted/30 text-muted-foreground opacity-50",
+        : "bg-muted/30 text-muted-foreground opacity-60",
       "open": "",
     }
     
     const statusClassName = dateInfo?.status ? statusClassNames[dateInfo.status] : ""
 
-    return (
+    // Create the button with overlay for booked dates
+    // Note: CalendarDayButton doesn't accept children, so we wrap it for the X icon overlay
+    const buttonElement = (
       <CalendarDayButton
         {...restProps}
         day={day}
@@ -708,14 +724,76 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         className={cn(
           statusClassName,
           // Add data attributes for potential CSS styling
-          dateInfo?.status === "solid-block" && "data-solid-block",
+          dateInfo?.status === "solid-block" && "data-solid-block data-booked",
           dateInfo?.status === "checkout-only" && "data-checkout-only",
+          isIneligible && "data-ineligible",
           dateInfo?.status === "open" && "data-open",
           className
         )}
         data-status={dateInfo?.status || "open"}
       />
     )
+
+    // Wrap button in container for X icon overlay (for booked dates and past dates)
+    const shouldShowXIcon = isBooked || isPastDate
+    
+    // If we need to show tooltip for ineligible dates, wrap the button element first
+    // Note: Disabled buttons don't trigger hover events, so we need to wrap in a span
+    // Then add X icon overlay if needed
+    if (hasUnavailableReason) {
+      // Wrap button in span for tooltip to work with disabled buttons
+      // The span receives hover events even when the button inside is disabled
+      const buttonWrapper = (
+        <span className="inline-flex w-full h-full" style={{ pointerEvents: 'auto' }}>
+          {buttonElement}
+        </span>
+      )
+      
+      const tooltipWrappedButton = (
+        <Tooltip delayDuration={200}>
+          <TooltipTrigger asChild>
+            {buttonWrapper}
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={5} className="z-[100]">
+            <p>{dateInfo.unavailableReason}</p>
+          </TooltipContent>
+        </Tooltip>
+      )
+      
+      // If we also need X icon, wrap the tooltip-wrapped button
+      if (shouldShowXIcon) {
+        return (
+          <div className="relative w-full h-full">
+            {tooltipWrappedButton}
+            {/* Show strikethrough (X icon) for booked dates and past dates - positioned absolutely over the button */}
+            <X 
+              className="absolute inset-0 m-auto w-4 h-4 text-muted-foreground opacity-70 pointer-events-none z-10" 
+              strokeWidth={2.5} 
+              aria-hidden="true"
+            />
+          </div>
+        )
+      }
+      
+      return tooltipWrappedButton
+    }
+    
+    // No tooltip needed, just add X icon if needed
+    if (shouldShowXIcon) {
+      return (
+        <div className="relative w-full h-full">
+          {buttonElement}
+          {/* Show strikethrough (X icon) for booked dates and past dates - positioned absolutely over the button */}
+          <X 
+            className="absolute inset-0 m-auto w-4 h-4 text-muted-foreground opacity-70 pointer-events-none z-10" 
+            strokeWidth={2.5} 
+            aria-hidden="true"
+          />
+        </div>
+      )
+    }
+    
+    return buttonElement
   }, [dateStatuses, checkIn, checkOut, calendarData, nextCheckInMap])
 
   // Set minimum date to today
@@ -911,6 +989,9 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                   
                   // Open dates are always enabled
                   return false
+                }}
+                components={{
+                  DayButton: CustomDayButton,
                 }}
                 numberOfMonths={2}
                 initialFocus
