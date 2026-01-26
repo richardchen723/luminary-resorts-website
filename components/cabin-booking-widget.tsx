@@ -130,8 +130,9 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
 
     try {
       // Calculate number of nights
-      const start = new Date(checkIn)
-      const end = new Date(checkOut)
+      // Use parseISO from date-fns to properly parse date strings (handles timezone correctly)
+      const start = parseISO(checkIn)
+      const end = parseISO(checkOut)
       const nights = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
       
       // Calculate pricing from calendar data (preferred method)
@@ -551,10 +552,6 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         throw new Error("Check-in and check-out dates are required")
       }
 
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/b28ecb8f-e0a5-4667-81bf-490fe6e90b80',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'components/cabin-booking-widget.tsx:482',message:'Widget - message in API request body',data:{message:data.message,messageLength:data.message?.length||0,messageType:typeof data.message,hasMessage:!!data.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-
       const response = await fetch("/api/inquiry/create", {
         method: "POST",
         headers: {
@@ -605,7 +602,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     const statuses: Record<string, ReturnType<typeof calculateCalendarStatus>> = {}
     // When checkOut is set, we're in "new check-in selection" mode
     // So calculate statuses as if no check-in is selected (checkout-only dates should be blocked)
-    const checkInDate = (checkIn && !checkOut) ? new Date(checkIn + 'T00:00:00') : null
+    const checkInDate = (checkIn && !checkOut) ? parseISO(checkIn) : null
     
     // Calculate visible date range: 2 months before today to 4 months ahead (covers 2-month calendar view)
     const today = new Date()
@@ -687,7 +684,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     
     // If not in cache (outside visible range), calculate on-demand
     if (!dateInfo) {
-      const checkInDate = (checkIn && !checkOut) ? new Date(checkIn + 'T00:00:00') : null
+      const checkInDate = (checkIn && !checkOut) ? parseISO(checkIn) : null
       dateInfo = calculateCalendarStatus(date, calendarData, checkInDate, nextCheckInMap)
     }
 
@@ -747,7 +744,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {checkIn && checkOut ? (
                   <>
-                    {format(new Date(checkIn), "MMM d")} - {format(new Date(checkOut), "MMM d, yyyy")}
+                    {format(parseISO(checkIn), "MMM d")} - {format(parseISO(checkOut), "MMM d, yyyy")}
                   </>
                 ) : (
                   "Select dates"
@@ -762,12 +759,12 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                 selected={
                   checkIn && checkOut
                     ? {
-                        from: checkIn ? new Date(checkIn + 'T00:00:00') : undefined,
-                        to: checkOut ? new Date(checkOut + 'T00:00:00') : undefined,
+                        from: parseISO(checkIn),
+                        to: parseISO(checkOut),
                       }
                     : checkIn
                     ? {
-                        from: new Date(checkIn + 'T00:00:00'),
+                        from: parseISO(checkIn),
                       }
                     : undefined
                 }
@@ -781,11 +778,8 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                   }
                   
                   // Check if this is a single-date click (same date for from and to, or no to)
-                  const isSingleDateClick = !range.to || (
-                    range.from.getFullYear() === range.to.getFullYear() &&
-                    range.from.getMonth() === range.to.getMonth() &&
-                    range.from.getDate() === range.to.getDate()
-                  )
+                  // Use isSameDay from date-fns to properly compare dates
+                  const isSingleDateClick = !range.to || isSameDay(range.from, range.to)
                   
                   // CRITICAL: If we have a complete selection (both checkIn and checkOut set),
                   // and user clicks ANY new date, completely clear and start fresh
@@ -793,15 +787,9 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                     // When react-day-picker has a range selected and you click a new date,
                     // it modifies the range. We need to detect which date was actually clicked.
                     // Compare the new range with the previous selection to determine the clicked date.
-                    const fromYear = range.from.getFullYear()
-                    const fromMonth = String(range.from.getMonth() + 1).padStart(2, '0')
-                    const fromDay = String(range.from.getDate()).padStart(2, '0')
-                    const newFromStr = `${fromYear}-${fromMonth}-${fromDay}`
-                    
-                    const toYear = range.to?.getFullYear()
-                    const toMonth = range.to ? String(range.to.getMonth() + 1).padStart(2, '0') : ''
-                    const toDay = range.to ? String(range.to.getDate()).padStart(2, '0') : ''
-                    const newToStr = range.to ? `${toYear}-${toMonth}-${toDay}` : ''
+                    // Use format() to avoid timezone issues
+                    const newFromStr = format(range.from, "yyyy-MM-dd")
+                    const newToStr = range.to ? format(range.to, "yyyy-MM-dd") : ''
                     
                     // Determine which date was clicked by comparing with previous selection
                     let clickedDateStr: string
@@ -825,11 +813,9 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                     return
                   }
                   
-                  // Convert range dates to local date strings for normal flow
-                  const fromYear = range.from.getFullYear()
-                  const fromMonth = String(range.from.getMonth() + 1).padStart(2, '0')
-                  const fromDay = String(range.from.getDate()).padStart(2, '0')
-                  const newCheckInStr = `${fromYear}-${fromMonth}-${fromDay}`
+                  // Convert range dates to local date strings using date-fns format to avoid timezone issues
+                  // Use format() which properly handles local timezone dates
+                  const newCheckInStr = format(range.from, "yyyy-MM-dd")
                   
                   // Normal selection flow (no complete selection exists, or we're in the middle of selecting)
                   if (isSingleDateClick) {
@@ -842,10 +828,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                     setIsSelectingNewRange(true)
                   } else if (range.to) {
                     // Complete range selected
-                    const toYear = range.to.getFullYear()
-                    const toMonth = String(range.to.getMonth() + 1).padStart(2, '0')
-                    const toDay = String(range.to.getDate()).padStart(2, '0')
-                    const newCheckOutStr = `${toYear}-${toMonth}-${toDay}`
+                    const newCheckOutStr = format(range.to, "yyyy-MM-dd")
                     setCheckIn(newCheckInStr)
                     setCheckOut(newCheckOutStr)
                     setIsSelectingNewRange(false) // Selection complete
@@ -871,7 +854,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                   // If check-in is selected, block all dates on or before it
                   // This ensures checkout date must be after check-in date
                   if (checkIn) {
-                    const checkInDateObj = new Date(checkIn + 'T00:00:00')
+                    const checkInDateObj = parseISO(checkIn)
                     // Block dates on or before check-in (use <= to include the check-in date itself)
                     if (date <= checkInDateObj) {
                       return true
@@ -899,7 +882,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                   
                   // If not in cache (outside visible range), calculate on-demand
                   if (!dateInfo) {
-                    const checkInDate = (checkIn && !checkOut) ? new Date(checkIn + 'T00:00:00') : null
+                    const checkInDate = (checkIn && !checkOut) ? parseISO(checkIn) : null
                     dateInfo = calculateCalendarStatus(date, calendarData, checkInDate, nextCheckInMap)
                   }
                   
