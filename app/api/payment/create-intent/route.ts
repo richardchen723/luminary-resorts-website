@@ -7,7 +7,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { createPaymentIntent } from '@/lib/stripe'
+import { createPaymentIntent, createSetupIntent } from '@/lib/stripe'
 import { getListingIdBySlug } from '@/lib/listing-map'
 import { roundToTwoDecimals } from '@/lib/utils'
 
@@ -61,7 +61,21 @@ export async function POST(request: Request) {
       )
     }
 
-    // Create payment intent
+    // Create setup intent to save payment method for future charges
+    // This allows charging the remaining balance later without 7-day expiration
+    const setupIntent = await createSetupIntent({
+      metadata: {
+        slug,
+        listingId: listingId.toString(),
+        checkIn,
+        checkOut,
+        guests: guests.toString(),
+      },
+      description: `Payment method setup for booking ${slug} from ${checkIn} to ${checkOut}`,
+    })
+
+    // Create payment intent for initial charge (e.g., 50% deposit)
+    // Note: We'll charge the full amount initially, but you can modify this to charge 50%
     const paymentIntent = await createPaymentIntent({
       amount: totalAmount,
       currency,
@@ -71,6 +85,7 @@ export async function POST(request: Request) {
         checkIn,
         checkOut,
         guests: guests.toString(),
+        setupIntentId: setupIntent.id, // Link setup intent to payment intent
       },
       description: `Booking for ${slug} from ${checkIn} to ${checkOut}`,
     })
@@ -78,6 +93,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
+      setupIntentClientSecret: setupIntent.client_secret, // For saving payment method
+      setupIntentId: setupIntent.id,
     })
   } catch (error: any) {
     console.error('Error creating payment intent:', error)

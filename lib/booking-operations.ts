@@ -9,7 +9,8 @@ import { createBooking as createDbBooking, updateBooking, getBookingById, logBoo
 import { invalidateCalendarForBooking } from './calendar-sync'
 import { checkCabinAvailability } from './availability'
 import { getSlugByListingId } from './listing-map'
-import type { Booking, PaymentStatus, ReservationStatus } from './db/schema'
+import type { Booking, ReservationStatus } from './db/schema'
+import { PaymentStatus } from './db/schema'
 import type { HostawayBookingRequest } from './types/hostaway'
 
 /**
@@ -47,6 +48,7 @@ function normalizePhoneNumber(phone: string): string {
  */
 export async function createBookingOperation(params: {
   paymentIntentId: string
+  paymentMethodId?: string // Saved payment method ID for future charges (no expiration)
   listingId: number
   checkIn: string
   checkOut: string
@@ -73,9 +75,10 @@ export async function createBookingOperation(params: {
     tax: number
     channelFee: number
   }
+  paymentStatus?: PaymentStatus // Payment status: 'pending' for authorized, 'succeeded' for captured
   stripeMetadata?: Record<string, any>
 }): Promise<{ booking: Booking; hostawayReservationId: number }> {
-  const { paymentIntentId, listingId, checkIn, checkOut, guests, adults, pets = 0, infants = 0, guestInfo, pricing, stripeMetadata } = params
+  const { paymentIntentId, paymentMethodId, listingId, checkIn, checkOut, guests, adults, pets = 0, infants = 0, guestInfo, pricing, paymentStatus = PaymentStatus.PENDING, stripeMetadata } = params
   
   // Get slug and listingMapId
   const slug = getSlugByListingId(listingId)
@@ -164,7 +167,7 @@ export async function createBookingOperation(params: {
       cleaning_fee: pricing.cleaningFee,
       tax: pricing.tax,
       channel_fee: pricing.channelFee,
-      payment_status: 'succeeded' as PaymentStatus,
+      payment_status: paymentStatus,
       reservation_status: 'confirmed' as ReservationStatus,
       stripe_metadata: stripeMetadata || null,
       hostaway_metadata: hostawayReservation || null,
@@ -225,7 +228,7 @@ export async function createBookingOperation(params: {
       cleaning_fee: pricing.cleaningFee,
       tax: pricing.tax,
       channel_fee: pricing.channelFee,
-      payment_status: 'succeeded' as PaymentStatus,
+      payment_status: paymentStatus,
       reservation_status: 'confirmed' as ReservationStatus,
       stripe_metadata: stripeMetadata || null,
       hostaway_metadata: null,

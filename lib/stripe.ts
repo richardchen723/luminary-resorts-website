@@ -30,6 +30,7 @@ export const stripe = new Proxy({} as Stripe, {
 
 /**
  * Create a payment intent for a booking
+ * Uses manual capture to authorize now and charge later
  */
 export async function createPaymentIntent(params: {
   amount: number // in cents
@@ -42,6 +43,7 @@ export async function createPaymentIntent(params: {
     currency: params.currency.toLowerCase(),
     metadata: params.metadata,
     description: params.description,
+    capture_method: 'manual', // Authorize now, charge later
     automatic_payment_methods: {
       enabled: true,
     },
@@ -52,17 +54,45 @@ export async function createPaymentIntent(params: {
 
 /**
  * Confirm a payment intent
+ * Accepts both 'succeeded' (captured) and 'requires_capture' (authorized) statuses
  */
 export async function confirmPaymentIntent(
   paymentIntentId: string
 ): Promise<Stripe.PaymentIntent> {
   const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
   
-  if (paymentIntent.status === 'succeeded') {
+  // Accept both succeeded (captured) and requires_capture (authorized) statuses
+  if (paymentIntent.status === 'succeeded' || paymentIntent.status === 'requires_capture') {
     return paymentIntent
   }
   
-  throw new Error(`Payment intent ${paymentIntentId} is not succeeded. Status: ${paymentIntent.status}`)
+  throw new Error(`Payment intent ${paymentIntentId} is not in a valid state. Status: ${paymentIntent.status}`)
+}
+
+/**
+ * Capture a previously authorized payment intent
+ * Use this to charge the card after authorization
+ * 
+ * Example usage:
+ * ```typescript
+ * // Capture full authorized amount
+ * const paymentIntent = await capturePaymentIntent('pi_xxx')
+ * 
+ * // Capture partial amount (e.g., for deposits)
+ * const paymentIntent = await capturePaymentIntent('pi_xxx', 5000) // $50.00
+ * ```
+ * 
+ * Note: Authorized payments expire after 7 days if not captured
+ */
+export async function capturePaymentIntent(
+  paymentIntentId: string,
+  amountToCapture?: number // in cents, if not provided, captures full amount
+): Promise<Stripe.PaymentIntent> {
+  const paymentIntent = await stripe.paymentIntents.capture(paymentIntentId, {
+    amount_to_capture: amountToCapture,
+  })
+  
+  return paymentIntent
 }
 
 /**
@@ -91,6 +121,60 @@ export async function createRefund(params: {
   })
 
   return refund
+}
+
+/**
+ * Create a setup intent to save payment method for future charges
+ * This allows charging the card later without the 7-day authorization expiration
+ */
+export async function createSetupIntent(params: {
+  metadata?: Record<string, string>
+  description?: string
+}): Promise<Stripe.SetupIntent> {
+  const setupIntent = await stripe.setupIntents.create({
+    payment_method_types: ['card'],
+    metadata: params.metadata,
+    description: params.description,
+  })
+
+  return setupIntent
+}
+
+/**
+ * Charge a saved payment method
+ * Use this to charge the remaining balance later (e.g., one month before check-in)
+ * 
+ * Example usage:
+ * ```typescript
+ * // Charge full amount
+ * const paymentIntent = await chargeSavedPaymentMethod({
+ *   paymentMethodId: 'pm_xxx',
+ *   amount: 5000, // $50.00 in cents
+ *   currency: 'usd',
+ *   metadata: { bookingId: 'xxx', reason: 'final_payment' }
+ * })
+ * ```
+ */
+export async function chargeSavedPaymentMethod(params: {
+  paymentMethodId: string
+  amount: number // in cents
+  currency: string
+  metadata?: Record<string, string>
+  description?: string
+  customerId?: string // Optional: if you want to create/use a Stripe Customer
+}): Promise<Stripe.PaymentIntent> {
+  // Create payment intent with the saved payment method
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: params.amount,
+    currency: params.currency.toLowerCase(),
+    payment_method: params.paymentMethodId,
+    confirm: true, // Automatically confirm and charge
+    off_session: true, // Indicates this is a saved payment method (no customer present)
+    metadata: params.metadata,
+    description: params.description,
+  })
+
+  return paymentIntent
 }
 
 /**

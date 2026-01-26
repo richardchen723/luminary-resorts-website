@@ -209,6 +209,14 @@ export async function logBookingModification(
 }
 
 /**
+ * Get saved payment method ID from booking
+ * Returns the payment method ID if available, null otherwise
+ */
+export function getSavedPaymentMethodId(booking: Booking): string | null {
+  return booking.stripe_metadata?.paymentMethodId || null
+}
+
+/**
  * Map database row to Booking object
  */
 function mapRowToBooking(row: any): Booking {

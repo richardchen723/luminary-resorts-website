@@ -5,6 +5,7 @@ import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { Card } from "@/components/ui/card"
 import { Loader2, Lock } from "lucide-react"
+import { parseISO, differenceInDays } from "date-fns"
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
@@ -13,19 +14,22 @@ const stripePromise = loadStripe(
 interface StepPaymentProps {
   paymentIntentId: string | null
   clientSecret: string | null
-  onPaymentSuccess: (paymentIntentId: string) => void
+  setupIntentClientSecret?: string | null // For saving payment method
+  onPaymentSuccess: (paymentIntentId: string, paymentMethodId?: string) => void
   isLoading?: boolean
   pricing?: {
     total: number
     currency: string
   } | null
+  checkIn?: string // Check-in date to verify 1 month advance requirement
 }
 
-function PaymentForm({ onPaymentSuccess, isLoading: externalLoading, pricing }: Omit<StepPaymentProps, 'paymentIntentId' | 'clientSecret'> & { clientSecret: string }) {
+function PaymentForm({ onPaymentSuccess, isLoading: externalLoading, pricing, setupIntentClientSecret, checkIn }: Omit<StepPaymentProps, 'paymentIntentId' | 'clientSecret'> & { clientSecret: string; setupIntentClientSecret?: string | null }) {
   const stripe = useStripe()
   const elements = useElements()
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedPaymentMethodType, setSelectedPaymentMethodType] = useState<string | null>('card') // Default to 'card' since it's the default payment method
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,6 +49,35 @@ function PaymentForm({ onPaymentSuccess, isLoading: externalLoading, pricing }: 
         return
       }
 
+      // Step 1: Confirm setup intent to save payment method (if setup intent is provided)
+      let paymentMethodId: string | undefined
+      if (setupIntentClientSecret) {
+        try {
+          const { error: setupError, setupIntent } = await stripe.confirmSetup({
+            elements,
+            clientSecret: setupIntentClientSecret,
+            redirect: "if_required",
+          })
+
+          if (setupError) {
+            setError(setupError.message || "Failed to save payment method. Please try again.")
+            setIsProcessing(false)
+            return
+          }
+
+          if (setupIntent && setupIntent.status === "succeeded" && setupIntent.payment_method) {
+            paymentMethodId = typeof setupIntent.payment_method === 'string' 
+              ? setupIntent.payment_method 
+              : setupIntent.payment_method.id
+          }
+        } catch (setupErr: any) {
+          console.error("Setup intent error:", setupErr)
+          // Continue with payment even if setup fails (non-critical)
+          console.warn("Payment method saving failed, but continuing with payment")
+        }
+      }
+
+      // Step 2: Confirm payment intent to authorize/charge
       const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
@@ -59,10 +92,18 @@ function PaymentForm({ onPaymentSuccess, isLoading: externalLoading, pricing }: 
         return
       }
 
-      if (paymentIntent && paymentIntent.status === "succeeded") {
-        onPaymentSuccess(paymentIntent.id)
+      // Accept both 'succeeded' (captured) and 'requires_capture' (authorized) statuses
+      // With manual capture, payment will be authorized (requires_capture) but not yet charged
+      if (paymentIntent && (paymentIntent.status === "succeeded" || paymentIntent.status === "requires_capture")) {
+        // Extract payment method ID from payment intent if not already saved
+        const finalPaymentMethodId = paymentMethodId || 
+          (paymentIntent.payment_method ? 
+            (typeof paymentIntent.payment_method === 'string' ? paymentIntent.payment_method : paymentIntent.payment_method.id) 
+            : undefined)
+        
+        onPaymentSuccess(paymentIntent.id, finalPaymentMethodId)
       } else {
-        setError("Payment was not completed. Please try again.")
+        setError("Payment was not authorized. Please try again.")
         setIsProcessing(false)
       }
     } catch (err: any) {
@@ -73,6 +114,43 @@ function PaymentForm({ onPaymentSuccess, isLoading: externalLoading, pricing }: 
   }
 
   const isLoading = isProcessing || externalLoading || false
+
+  // Check if booking is at least 1 month (30 days) in advance
+  const isAtLeastOneMonthAway = checkIn ? (() => {
+    try {
+      const checkInDate = parseISO(checkIn)
+      const today = new Date()
+      const daysUntilCheckIn = differenceInDays(checkInDate, today)
+      return daysUntilCheckIn >= 30
+    } catch {
+      return false
+    }
+  })() : false
+
+  // Listen for payment method type changes from PaymentElement
+  useEffect(() => {
+    if (!elements) return
+
+    const paymentElement = elements.getElement('payment')
+    if (!paymentElement) return
+
+    const handleChange = (event: any) => {
+      // The event.value.type contains the payment method type (e.g., 'card', 'cashapp', 'affirm', etc.)
+      if (event.value?.type) {
+        setSelectedPaymentMethodType(event.value.type)
+      }
+    }
+
+    paymentElement.on('change', handleChange)
+
+    return () => {
+      paymentElement.off('change', handleChange)
+    }
+  }, [elements])
+
+  // Check if card payment method is selected
+  const isCardSelected = selectedPaymentMethodType === 'card'
+  const showInstallmentMessage = isCardSelected && isAtLeastOneMonthAway
 
   return (
     <form id="payment-form" onSubmit={handleSubmit} className="space-y-6">
@@ -90,6 +168,14 @@ function PaymentForm({ onPaymentSuccess, isLoading: externalLoading, pricing }: 
               {pricing.total.toFixed(2)}
             </span>
           </div>
+        </Card>
+      )}
+
+      {showInstallmentMessage && (
+        <Card className="p-4 bg-primary/5 border-primary/20">
+          <p className="text-sm text-foreground">
+            Confirm your booking now—pay in 3 installments. Available for bookings made at least 1 month in advance.
+          </p>
         </Card>
       )}
 
@@ -117,7 +203,7 @@ function PaymentForm({ onPaymentSuccess, isLoading: externalLoading, pricing }: 
   )
 }
 
-export function StepPayment({ paymentIntentId, clientSecret, onPaymentSuccess, isLoading, pricing }: StepPaymentProps) {
+export function StepPayment({ paymentIntentId, clientSecret, setupIntentClientSecret, onPaymentSuccess, isLoading, pricing, checkIn }: StepPaymentProps) {
   if (!clientSecret) {
   return (
     <div className="space-y-6">
@@ -155,7 +241,14 @@ export function StepPayment({ paymentIntentId, clientSecret, onPaymentSuccess, i
         },
       }}
     >
-      <PaymentForm clientSecret={clientSecret} onPaymentSuccess={onPaymentSuccess} isLoading={isLoading} pricing={pricing} />
+      <PaymentForm 
+        clientSecret={clientSecret} 
+        setupIntentClientSecret={setupIntentClientSecret}
+        onPaymentSuccess={onPaymentSuccess} 
+        isLoading={isLoading} 
+        pricing={pricing}
+        checkIn={checkIn}
+      />
     </Elements>
   )
 }

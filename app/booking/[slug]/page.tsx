@@ -55,6 +55,7 @@ export default function BookingPage() {
   const [guestInfo, setGuestInfo] = useState<Partial<HostawayGuestInfo>>({})
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [setupIntentClientSecret, setSetupIntentClientSecret] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [bookingConfirmation, setBookingConfirmation] = useState<{
@@ -511,6 +512,7 @@ export default function BookingPage() {
       const data = await response.json()
       setClientSecret(data.clientSecret)
       setPaymentIntentId(data.paymentIntentId)
+      setSetupIntentClientSecret(data.setupIntentClientSecret || null)
     } catch (err: any) {
       setError(err.message || "Failed to initialize payment. Please try again.")
       console.error("Error creating payment intent:", err)
@@ -519,7 +521,7 @@ export default function BookingPage() {
     }
   }
 
-  const handlePaymentSuccess = async (paymentIntentId: string) => {
+  const handlePaymentSuccess = async (paymentIntentId: string, paymentMethodId?: string) => {
     if (!cabin || !checkIn || !checkOut || !guestInfo.firstName || !guestInfo.lastName || !guestInfo.email || !guestInfo.phone) {
       setError("Missing required information")
       return
@@ -541,6 +543,7 @@ export default function BookingPage() {
         },
         body: JSON.stringify({
           paymentIntentId,
+          paymentMethodId, // Pass saved payment method ID for future charges
           slug,
           checkIn,
           checkOut,
@@ -692,12 +695,14 @@ export default function BookingPage() {
             <StepPayment
               paymentIntentId={paymentIntentId}
               clientSecret={clientSecret}
+              setupIntentClientSecret={setupIntentClientSecret}
               onPaymentSuccess={handlePaymentSuccess}
               isLoading={isSubmitting}
               pricing={pricing ? {
                 total: pricing.total,
                 currency: pricing.currency,
               } : null}
+              checkIn={checkIn || undefined}
             />
           )}
 

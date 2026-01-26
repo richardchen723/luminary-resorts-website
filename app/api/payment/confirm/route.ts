@@ -17,6 +17,7 @@ import { createBookingAttribution } from "@/lib/attribution"
 
 interface ConfirmPaymentRequest {
   paymentIntentId: string
+  paymentMethodId?: string // Saved payment method ID for future charges
   slug: string
   checkIn: string
   checkOut: string
@@ -58,7 +59,7 @@ interface ConfirmPaymentRequest {
 export async function POST(request: Request) {
   try {
     const body: ConfirmPaymentRequest = await request.json()
-    const { paymentIntentId, slug, checkIn, checkOut, guests, pets = 0, infants = 0, pricing, guestInfo } = body
+    const { paymentIntentId, paymentMethodId, slug, checkIn, checkOut, guests, pets = 0, infants = 0, pricing, guestInfo } = body
 
     // Validate required fields
     if (!paymentIntentId || !slug || !checkIn || !checkOut || !guests || !guestInfo) {
@@ -79,10 +80,11 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check payment status
-    if (paymentIntent.status !== 'succeeded') {
+    // Check payment status - accept both succeeded (captured) and requires_capture (authorized)
+    // With manual capture, payment will be in 'requires_capture' status after authorization
+    if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'requires_capture') {
       return NextResponse.json(
-        { error: `Payment not succeeded. Status: ${paymentIntent.status}` },
+        { error: `Payment not authorized. Status: ${paymentIntent.status}` },
         { status: 400 }
       )
     }
@@ -159,6 +161,13 @@ export async function POST(request: Request) {
       console.warn('Pricing not provided in request, using estimated breakdown from payment intent amount')
     }
 
+    // Determine payment status based on payment intent status
+    // With manual capture: 'requires_capture' = authorized but not charged (pending)
+    // 'succeeded' = captured and charged
+    const paymentStatus = paymentIntent.status === 'succeeded' 
+      ? 'succeeded' as const 
+      : 'pending' as const // 'requires_capture' means authorized but not yet captured
+
     // Create booking (Hostaway reservation + database storage)
     try {
       const { booking, hostawayReservationId } = await createBookingOperation({
@@ -172,10 +181,14 @@ export async function POST(request: Request) {
         infants,
         guestInfo,
         pricing: finalPricing,
+        paymentStatus, // Pass the payment status
+        paymentMethodId, // Store saved payment method ID for future charges
         stripeMetadata: {
           paymentIntentId: paymentIntent.id,
           amount: paymentIntent.amount,
           currency: paymentIntent.currency,
+          status: paymentIntent.status, // Store Stripe status for reference
+          paymentMethodId: paymentMethodId || null, // Also store in metadata for easy access
         },
       })
 
