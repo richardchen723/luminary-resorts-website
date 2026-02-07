@@ -4,6 +4,7 @@ import Image from "next/image"
 import { Card } from "@/components/ui/card"
 import { Calendar, Users, Home } from "lucide-react"
 import type { Cabin } from "@/lib/cabins"
+import { differenceInCalendarDays, format, parseISO } from "date-fns"
 
 interface StepReviewProps {
   cabin: Cabin
@@ -40,9 +41,9 @@ export function StepReview({
   infants = 0,
   pricing,
 }: StepReviewProps) {
-  const nights = Math.ceil(
-    (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)
-  )
+  const checkInDate = parseISO(checkIn)
+  const checkOutDate = parseISO(checkOut)
+  const nights = differenceInCalendarDays(checkOutDate, checkInDate)
 
   return (
     <div className="space-y-6">
@@ -73,19 +74,7 @@ export function StepReview({
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar className="w-4 h-4" />
                 <span>
-                  {new Date(checkIn).toLocaleDateString("en-US", {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}{" "}
-                  -{" "}
-                  {new Date(checkOut).toLocaleDateString("en-US", {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+                  {format(checkInDate, "EEE, MMM d, yyyy")} - {format(checkOutDate, "EEE, MMM d, yyyy")}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">

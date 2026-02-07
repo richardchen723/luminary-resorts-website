@@ -14,7 +14,7 @@ import type { HostawayGuestInfo, HostawayCalendarEntry } from "@/types/hostaway"
 import { StepConfirmation } from "@/components/booking-steps/step-confirmation"
 import { getListingIdBySlug } from "@/lib/listing-map"
 import type { Cabin } from "@/lib/cabins"
-import { eachDayOfInterval, parseISO, format } from "date-fns"
+import { eachDayOfInterval, parseISO, format, differenceInCalendarDays } from "date-fns"
 import { roundToTwoDecimals } from "@/lib/utils"
 import { trackReservationConfirmed } from "@/lib/analytics"
 type BookingStep = "review" | "guest" | "payment" | "confirmation"
@@ -154,9 +154,7 @@ export default function BookingPage() {
         const listingId = getListingIdBySlug(slug)
         if (!listingId) return
 
-        const nights = Math.ceil(
-          (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)
-        )
+        const nights = differenceInCalendarDays(parseISO(checkOut), parseISO(checkIn))
 
         // Calculate pricing from calendar data (preferred method)
         // Note: If calendarData isn't loaded yet, the useEffect will re-run when it's set

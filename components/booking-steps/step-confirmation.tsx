@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, Calendar, Users, DollarSign, Home, Mail } from "lucide-react"
 import Link from "next/link"
+import { differenceInCalendarDays, format, parseISO } from "date-fns"
 
 interface StepConfirmationProps {
   confirmationCode: string
@@ -26,9 +27,9 @@ export function StepConfirmation({
   currency,
   guestEmail,
 }: StepConfirmationProps) {
-  const nights = Math.ceil(
-    (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)
-  )
+  const checkInDate = parseISO(checkIn)
+  const checkOutDate = parseISO(checkOut)
+  const nights = differenceInCalendarDays(checkOutDate, checkInDate)
 
   return (
     <div className="space-y-6">
@@ -64,17 +65,7 @@ export function StepConfirmation({
               <div>
                 <div className="text-sm text-muted-foreground">Dates</div>
                 <div className="font-semibold">
-                  {new Date(checkIn).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}{" "}
-                  -{" "}
-                  {new Date(checkOut).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+                  {format(checkInDate, "MMM d, yyyy")} - {format(checkOutDate, "MMM d, yyyy")}
                 </div>
                 <div className="text-sm text-muted-foreground">{nights} {nights === 1 ? "night" : "nights"}</div>
               </div>

@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import type { CabinAvailability } from "@/lib/availability"
 import { Calendar, Users, DollarSign } from "lucide-react"
+import { format, parseISO } from "date-fns"
 
 interface AvailabilityResultsProps {
   cabins: CabinAvailability[]
@@ -71,15 +72,7 @@ export function AvailabilityResults({
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Calendar className="w-4 h-4" />
                   <span>
-                    {new Date(checkIn).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}{" "}
-                    -{" "}
-                    {new Date(checkOut).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
+                    {format(parseISO(checkIn), "MMM d")} - {format(parseISO(checkOut), "MMM d")}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">

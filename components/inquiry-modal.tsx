@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
-import { format } from "date-fns"
+import { differenceInCalendarDays, format, isValid, parseISO } from "date-fns"
 
 interface InquiryModalProps {
   open: boolean
@@ -249,18 +249,16 @@ export function InquiryModal({
   }
 
   // Safely parse and format dates
-  const checkInDate = checkIn ? new Date(checkIn) : null
-  const checkOutDate = checkOut ? new Date(checkOut) : null
+  const checkInDate = checkIn ? parseISO(checkIn) : null
+  const checkOutDate = checkOut ? parseISO(checkOut) : null
   
-  const isValidCheckIn = checkInDate && !isNaN(checkInDate.getTime())
-  const isValidCheckOut = checkOutDate && !isNaN(checkOutDate.getTime())
+  const isValidCheckIn = !!checkInDate && isValid(checkInDate)
+  const isValidCheckOut = !!checkOutDate && isValid(checkOutDate)
   
-  const formattedCheckIn = isValidCheckIn ? format(checkInDate!, "EEEE, MMMM d, yyyy") : ""
-  const formattedCheckOut = isValidCheckOut ? format(checkOutDate!, "EEEE, MMMM d, yyyy") : ""
+  const formattedCheckIn = isValidCheckIn ? format(checkInDate, "EEEE, MMMM d, yyyy") : ""
+  const formattedCheckOut = isValidCheckOut ? format(checkOutDate, "EEEE, MMMM d, yyyy") : ""
   const nights = isValidCheckIn && isValidCheckOut
-    ? Math.ceil(
-        (checkOutDate!.getTime() - checkInDate!.getTime()) / (1000 * 60 * 60 * 24)
-      )
+    ? differenceInCalendarDays(checkOutDate, checkInDate)
     : 0
 
   const guestInfo = []
