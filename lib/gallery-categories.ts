@@ -3,13 +3,14 @@
  * This file maps image URLs to their categories.
  * Images are categorized manually to ensure accuracy.
  * 
- * Last updated: 2026-01-12T03:33:07.504Z
+ * Last updated: 2026-02-13T13:59:48.633Z
  */
 
 export interface ImageCategoryMapping {
   url: string
   category: "exterior" | "interior" | "nature" | "details"
   cabinSlug: string
+  index?: number
 }
 
 /**
@@ -17,55 +18,43 @@ export interface ImageCategoryMapping {
  * Format: { url: string, category: "exterior" | "interior" | "nature" | "details", cabinSlug: string }
  */
 export const IMAGE_CATEGORY_MAP: ImageCategoryMapping[] = [
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-Vdbk--jmFihfujiTDSlsRxIYJ1PCZaHeIxgBkH7hW6sk-69645dbe7bf0c", category: "details", cabinSlug: "dew" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1586000198776188904/original/fa1f2d32-eb11-481c-80c7-0fcb28b35afe.jpeg?aki_policy=xx_large", category: "interior", cabinSlug: "dew" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1586000198776188904/original/81df38ed-21dc-415c-8f10-c6979ac1fe59.jpeg?aki_policy=xx_large", category: "interior", cabinSlug: "dew" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-SvmsdLwInlEP--Hg2sAroVvAjvVHjCHtr3afEPFybM-0-69645db8cd497", category: "interior", cabinSlug: "dew" },
-  { url: "https://a0.muscache.com/im/pictures/prohost-api/Hosting-1586000198776188904/original/4d4892d9-0137-447e-89ed-ff5a2161a758.jpeg?aki_policy=xx_large", category: "exterior", cabinSlug: "dew" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-mClY-iZd1zJb8gNVhPryJyhUsCAKwB9-nTEx-zVMdqE-69645db31db29", category: "exterior", cabinSlug: "dew" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-b--Ke--GeqZ101Ap20hh0c1KgxDfUwho--Hqb0bhhqmQhM-69645dc354bb0", category: "exterior", cabinSlug: "dew" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1586000198776188904/original/d3b64f3a-4c2b-44ff-8838-4d5ea9c728f0.jpeg?aki_policy=xx_large", category: "exterior", cabinSlug: "dew" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-Ggf----dbCPj-lxdGstTpIpB9HB36cLRKxOxMYpBYEsCI-69645dc5ef27a", category: "nature", cabinSlug: "dew" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-SO8iR7wNo-tNuaD4jMUyKc9f9mlOps3hskhEU9YFvcQ-696419ad4b435", category: "interior", cabinSlug: "dew" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-2VoxPw1ogFm--GFueKZyM--b9BvwcrnFQxchXfq28rNto-69641991b0aab", category: "exterior", cabinSlug: "dew" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1586000198776188904/original/bfdeded2-ac3e-4ee7-8354-8640064841cc.jpeg?aki_policy=xx_large", category: "details", cabinSlug: "dew" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1586000198776188904/original/83dc496b-dc94-4c44-8b56-9091f4a3113b.jpeg?aki_policy=xx_large", category: "details", cabinSlug: "dew" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-tYc2dQqNwRBIPWIcBvvuHOwwZFl4X3WiM4ZsS7--YHFk-69645d9f6132c", category: "details", cabinSlug: "dew" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-RgiUbt8Txv--3yyCogTkA4y5nluqen4Y03fPtSch7Ayw-69645da3094b3", category: "exterior", cabinSlug: "dew" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-hR5KUkrirOYE2oPQwBdHHAKN437Ws6z0JiL--m0vZMzU-6964197f48d73", category: "details", cabinSlug: "dew" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1586000198776188904/original/be0e0195-cb53-44a6-84f0-c8e608491811.jpeg?aki_policy=xx_large", category: "nature", cabinSlug: "dew" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341---h6HRH6IzztMGJyOB42TM9---9vLrYJh9Fg077iIRPOA-6964196aefb53", category: "nature", cabinSlug: "dew" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/7dd4c75a-f44c-4b7d-8b1a-8026666dbafd.jpeg?aki_policy=xx_large", category: "interior", cabinSlug: "sol" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-SDG3e1cLDzSgE3-075MTqktBzHPfPdGP4hrhrFPArJA-69641919ba8f5", category: "exterior", cabinSlug: "sol" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/ce396d82-373a-4903-947d-bfdef846a39c.jpeg?aki_policy=xx_large", category: "interior", cabinSlug: "sol" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/933ee2dc-c03a-444b-8d43-a73c02a27193.jpeg?aki_policy=xx_large", category: "exterior", cabinSlug: "sol" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/f513fa08-db62-4407-8885-cd17100d7112.jpeg?aki_policy=xx_large", category: "details", cabinSlug: "sol" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/dbd66193-9958-4690-be10-462419547396.jpeg?aki_policy=xx_large", category: "details", cabinSlug: "sol" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/d7e27300-609f-4249-89d9-0dc990842213.jpeg?aki_policy=xx_large", category: "details", cabinSlug: "sol" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/79cff0bc-68db-454c-905f-5db8fd3d0738.jpeg?aki_policy=xx_large", category: "exterior", cabinSlug: "sol" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-cIk6eH7UYtuIsYWd1PqXpMlDeNkrKUk--g9fiOohG5lo-69645d3c0fd78", category: "exterior", cabinSlug: "sol" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/a7d96683-b21f-4b07-82a8-2f3b4e6157c0.jpeg?aki_policy=xx_large", category: "nature", cabinSlug: "sol" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/66c7f831-0ff2-47ee-8a87-2004f4250f94.jpeg?aki_policy=xx_large", category: "nature", cabinSlug: "sol" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/914f82ae-397a-4a91-ada2-ad199f810403.jpeg?aki_policy=xx_large", category: "details", cabinSlug: "sol" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-FvezH3JrFB9c-L5VchptYBx4uHixPErk4AdCjsGU--tc-696418da853d3", category: "details", cabinSlug: "sol" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-aWSI4y8gOzVkrZbil--lXezkJYj--jEpx3S03UUuIjjsY-696418d1bc5f8", category: "details", cabinSlug: "sol" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/1cd41b53-2413-434f-bc20-d5a5991ca4aa.jpeg?aki_policy=xx_large", category: "nature", cabinSlug: "sol" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-ns74bNy-jn0InnoC3H6r7vwO3mClR4X5cM0qO--iXkZA-696418d0a1fdd", category: "nature", cabinSlug: "sol" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472339-nTitRCBzdlcfJPZ--RUuc4Z--3QS9V--DDwdL0Vm0RcW2M-69641a10e1ed8", category: "nature", cabinSlug: "mist" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1584455699787140211/original/ead73349-608f-4d1e-9b25-c7c90d5897fa.jpeg?aki_policy=xx_large", category: "interior", cabinSlug: "mist" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472339-Q5CtMQVDe1I5FAVqbhevPx-c0TPce9GYm7qXnsAH5Y8-696419fdd6513", category: "details", cabinSlug: "mist" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472339-dPjfpBphPoRuYDkXnuK4dd4MikhVmW6mSpSn9MkXgbc-696419ee91968", category: "exterior", cabinSlug: "mist" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1584455699787140211/original/40fa9a6e-87f7-42b0-9a13-0de34e77dc6a.jpeg?aki_policy=xx_large", category: "exterior", cabinSlug: "mist" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1584455699787140211/original/b9b65b55-4e73-4612-9a3a-917915969195.jpeg?aki_policy=xx_large", category: "exterior", cabinSlug: "mist" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472338-nl1AP7QerBeCEZ8vU3p64a6XXTflnB0CTihrFokT0pc-69641967336ba", category: "nature", cabinSlug: "moss" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472338-veW5--dYnFy1b0WHdheK-yA93PSQSGe8STNAvX2HEo6E-69645d918fa1f", category: "details", cabinSlug: "moss" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472338-9IHPXhn0r1-cVdySkIjxZ--fT44orqy8Eoo96Cw1y-lU-69645d816a555", category: "interior", cabinSlug: "moss" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1588845522414320813/original/0c9ce1e6-da4c-4716-8721-e40179cd8efa.jpeg?aki_policy=xx_large", category: "details", cabinSlug: "moss" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1588845522414320813/original/a0290f3f-2388-4bdc-a43d-545d4da1950c.jpeg?aki_policy=xx_large", category: "details", cabinSlug: "moss" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1586000198776188904/original/07616e3e-3a3a-4ae6-a287-a80f6e5ea539.jpeg?aki_policy=xx_large", category: "interior", cabinSlug: "dew" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1586000198776188904/original/cc69e968-3d4b-4f15-a59e-543671e8b65f.jpeg?aki_policy=xx_large", category: "interior", cabinSlug: "dew" },
-  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472339-afnockOZmVhWUscVAkS41CF55hdZ4gOCsRcCZILhu3Y-69641a17d2027", category: "interior", cabinSlug: "mist" },
-  { url: "https://a0.muscache.com/im/pictures/hosting/Hosting-1584455699787140211/original/6e9c67a9-69f4-492b-b6fc-7fe00733d931.jpeg?aki_policy=xx_large", category: "interior", cabinSlug: "mist" },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-r1eAkm56YTq--s--jiMNVsSJmRb-1OxZ9lTQIoM9pfY50-696db360b4346", category: "interior", cabinSlug: "dew", index: 1 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-R7e0JvqVXgRSmPltBmidMyQlEZOKG59LmlIdEjdsQp0-696db35fb3b17", category: "interior", cabinSlug: "dew", index: 5 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-spttxHJEgNajVF2TyWHOgZU6qqQW73zcmPDcZeW0Wl8-696dac93a64e7", category: "interior", cabinSlug: "dew", index: 6 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-GkWvW7cB1CAbfQSNnbAw0keqa7lAVH--1V9k3ZCJ342w-696dac97b9b44", category: "interior", cabinSlug: "dew", index: 8 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341---X2SNe0ohPNM7N--dnEAflUJj0l-oin8H1-hWrVF-6lA-696dac8db70e9", category: "exterior", cabinSlug: "dew", index: 11 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-ykgu--wn3WewI5OnTHD7GQMlGva2gJ3KG4OJ-ddX--5n4-696dac8cbf6b3", category: "exterior", cabinSlug: "dew", index: 12 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-jykmD--FLkS2bvN2l-bEcGyjHA8F238a3DlTJKjKILq8-696dac8bb9f99", category: "exterior", cabinSlug: "dew", index: 13 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-rHTBjW1bT43lJ6QaQamSHygtvEtiHLlIrNOtt45hEZY-696dac8aad4e5", category: "nature", cabinSlug: "dew", index: 14 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-LBUiR1hGzf80Qa1zLgEymS3WmmQEoydlSu6LVup-NFk-696dac898f963", category: "nature", cabinSlug: "dew", index: 15 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-0JLeL8sw7H9Gw3DRvs7yxLuTvFDkY4lPkS9dWBy5BgE-696dac98cc3be", category: "exterior", cabinSlug: "dew", index: 17 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-03rj8itLlSqC92PecwNTquE7oH2WQmVBqFsmnwiqxkk-696daca11f0a2", category: "exterior", cabinSlug: "dew", index: 18 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-78tZKmv-2aKzIyvT6G7EkoxOABhVFwwXvF49GHgaL4M-696dac737d95d", category: "interior", cabinSlug: "sol", index: 0 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-53tpfWAiv4BAaywMipGyG2ye12YirDvdabAJ5jPkPwI-696dac746577c", category: "exterior", cabinSlug: "sol", index: 1 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-OTjK8V8aZht0DIqbGFFRytSQwWZxMQ8n--qM7qQ1XzNc-696dac6ad1085", category: "interior", cabinSlug: "sol", index: 2 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-FlwH-42rB0Hw82zSKzvXzT-pBF6hiMf1ZADVKYCBGpI-696dac6eb5430", category: "exterior", cabinSlug: "sol", index: 3 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-HA9Lnt5Qnz3k37jJbeMSxzJoW5sbcLDZodP8jvF6Poo-696db35ecf293", category: "exterior", cabinSlug: "sol", index: 4 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-KrSrCzlROo09X90rLrAp8ZZoxBizupXSwamOpfS-GyA-696dac6fad5c3", category: "interior", cabinSlug: "sol", index: 5 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-tdw-Oodl97NpQYBNhvVhgn4J67TeTrPx1NpqH2VjGfo-696dba6d8431f", category: "details", cabinSlug: "sol", index: 9 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-znKOlONVuTrjJWlZfoFsXxUDlx--ykzcJ3WmqWphPQcY-696dac66818be", category: "interior", cabinSlug: "sol", index: 10 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-Z7uXH8NsXXXAriZEJuvQdGwUGaDV7k54OuC1i7fE5aA-696dac6578103", category: "details", cabinSlug: "sol", index: 11 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-OwXIcexEx8kJ6r3VsvRbpppK--slriAhAReDUDClVmEQ-696dac64866b0", category: "interior", cabinSlug: "sol", index: 12 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-uuQUJrew7DVj658dnAzonYFmjChyL8jAlNdWlHnjuE8-696dac63470bc", category: "details", cabinSlug: "sol", index: 13 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472339-2K4YiwJh0jA402dzHRjLPCoCQMk62pSAuR-sJK6kswM-696dacee2ec84", category: "interior", cabinSlug: "mist", index: 0 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472339-mWHogWSHFLa9Y86Kjq0OsBpH628QNZgq10Ejrp01-34-696daceaab918", category: "interior", cabinSlug: "mist", index: 1 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472339-5KL2nMay7areRmTQU7SEiNrJoJ8YOSmrYCK7Ax4Wm4E-696dacecee4d3", category: "interior", cabinSlug: "mist", index: 3 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472339-18vJX2v--QHmQsxYpKIjAbT-wA3xYjO-NlbhtF4hOSPM-696dace995860", category: "nature", cabinSlug: "mist", index: 4 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472339-rE6Iho3kLavF9nKoeAcorAKnodIoI4q2wkp7OWeHuIo-696dace5054b4", category: "interior", cabinSlug: "mist", index: 5 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472339-WBnH07uRriYTH2Nbqp3NPlFZ8vy2PHZqiM0Q3IUyawE-696dace3e7ef7", category: "exterior", cabinSlug: "mist", index: 6 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472339---2rK2tYiqZ4KoblEFGl0g90o--FZY1ZZRqnbiF0KnPKg-696dace2c2512", category: "details", cabinSlug: "mist", index: 7 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472338-pfArvMq381gVslDbSlePQnha8T0kyNvHGKaI791RqQs-696dacc3974e9", category: "nature", cabinSlug: "moss", index: 0 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472338-airlDsrgY9aLyhu3dSNa72geBOsQcX75s9NuMYkAd44-696dacc27a890", category: "interior", cabinSlug: "moss", index: 1 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472338-qZPot-P9rrUWKHob50HDnGT3e0xhzS9qpcRycNulLzo-696dacc17802e", category: "exterior", cabinSlug: "moss", index: 2 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472338---R20zpnhYaKfRPldViD8sL-yeZHGWI9TYx7M7yeOIMw-696dacc03b567", category: "exterior", cabinSlug: "moss", index: 3 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472338-HWBmgjjjggDXRqP5ImMIRSEPOEVAHj5oMVXW2eEdM-o-696dacbf2e280", category: "details", cabinSlug: "moss", index: 4 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-ErHxrdVEIX57XpaFLp0Za8APQdmbw3KylwqM0TWrSQ0-696dac798d0cc", category: "details", cabinSlug: "dew", index: 27 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472341-TPHUMcZGsAYyWK--6DgMYCjn9bomuAoYZMIolWptoeMY-696dac755ce57", category: "nature", cabinSlug: "dew", index: 43 },
+  { url: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-aLuNb-MslMtaQoTBPKogckszsdgt3n4miTvkdRy3QHM-696dac4fa8725", category: "details", cabinSlug: "sol", index: 39 },
 ]
 
 /**

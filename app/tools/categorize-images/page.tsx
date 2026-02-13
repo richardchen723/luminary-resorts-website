@@ -4,18 +4,26 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
+type ImageCategory = "exterior" | "interior" | "nature" | "details"
+
 interface ImageData {
   url: string
   cabinSlug: string
   caption: string | null
   bookingEngineCaption: string | null
   index: number
+  category: ImageCategory | null
 }
 
 interface CategorizedImage {
   url: string
-  category: "exterior" | "interior" | "nature" | "details" | null
+  category: ImageCategory | null
   cabinSlug: string
+  index: number
+}
+
+function isImageCategory(value: unknown): value is ImageCategory {
+  return value === "exterior" || value === "interior" || value === "nature" || value === "details"
 }
 
 export default function CategorizeImagesPage() {
@@ -31,14 +39,49 @@ export default function CategorizeImagesPage() {
       try {
         const response = await fetch("/api/gallery/list-images")
         const data = await response.json()
-        setImages(data.images || [])
-        
-        // Load saved categorizations from localStorage
+
+        const apiImages: ImageData[] = Array.isArray(data.images) ? data.images : []
+        setImages(apiImages)
+
+        // Seed from server-derived categories so current categorizations are always loaded.
+        const mergedMap = new Map<string, CategorizedImage>()
+        apiImages.forEach((img) => {
+          if (!img.category) return
+          mergedMap.set(img.url, {
+            url: img.url,
+            category: img.category,
+            cabinSlug: img.cabinSlug,
+            index: img.index,
+          })
+        })
+
+        // Then overlay local draft changes for currently visible URLs.
         const saved = localStorage.getItem("image-categorizations")
         if (saved) {
-          const savedMap = new Map(JSON.parse(saved))
-          setCategorized(savedMap)
+          const parsed = JSON.parse(saved)
+          if (Array.isArray(parsed)) {
+            parsed.forEach((entry) => {
+              if (!Array.isArray(entry) || entry.length !== 2) return
+              const [url, value] = entry
+              if (typeof url !== "string" || !value || typeof value !== "object") return
+
+              const image = apiImages.find((img) => img.url === url)
+              if (!image) return
+
+              const category = (value as { category?: unknown }).category
+              if (!isImageCategory(category)) return
+
+              mergedMap.set(url, {
+                url,
+                category,
+                cabinSlug: image.cabinSlug,
+                index: image.index,
+              })
+            })
+          }
         }
+
+        setCategorized(mergedMap)
       } catch (error) {
         console.error("Error fetching images:", error)
       } finally {
@@ -61,7 +104,7 @@ export default function CategorizeImagesPage() {
     }
   }, [categorized])
 
-  const handleCategorize = (url: string, category: "exterior" | "interior" | "nature" | "details") => {
+  const handleCategorize = (url: string, category: ImageCategory) => {
     const image = images.find((img) => img.url === url)
     if (!image) return
 
@@ -71,6 +114,7 @@ export default function CategorizeImagesPage() {
         url,
         category,
         cabinSlug: image.cabinSlug,
+        index: image.index,
       })
       return newMap
     })
@@ -90,7 +134,8 @@ export default function CategorizeImagesPage() {
       .map((img) => {
         const image = images.find((i) => i.url === img.url)
         const caption = image?.caption || image?.bookingEngineCaption || "No caption"
-        return `  // ${img.cabinSlug} - Image ${image?.index + 1}: ${caption}\n  { url: "${img.url}", category: "${img.category}", cabinSlug: "${img.cabinSlug}" },`
+        const imageNumber = typeof image?.index === "number" ? image.index + 1 : img.index + 1
+        return `  // ${img.cabinSlug} - Image ${imageNumber}: ${caption}\n  { url: "${img.url}", category: "${img.category}", cabinSlug: "${img.cabinSlug}" },`
       })
       .join("\n")
 

@@ -27,7 +27,8 @@ export async function POST(request: Request) {
       const imageMappings = categorizations
         .map(([url, data]: [string, any]) => {
           if (!data || !data.category) return null
-          return `  { url: "${url}", category: "${data.category}", cabinSlug: "${data.cabinSlug}" },`
+          const indexPart = typeof data.index === "number" ? `, index: ${data.index}` : ""
+          return `  { url: "${url}", category: "${data.category}", cabinSlug: "${data.cabinSlug}"${indexPart} },`
         })
         .filter((line: string | null): line is string => line !== null)
         .join("\n")
@@ -44,6 +45,7 @@ export interface ImageCategoryMapping {
   url: string
   category: "exterior" | "interior" | "nature" | "details"
   cabinSlug: string
+  index?: number
 }
 
 /**

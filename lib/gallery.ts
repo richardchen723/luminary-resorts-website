@@ -1,7 +1,7 @@
 import { getAllCabinsFromHostaway } from "@/lib/cabin-cache"
 import { getListing } from "@/lib/hostaway"
 import { LISTING_ID_MAP } from "@/lib/listing-map"
-import { IMAGE_CATEGORY_MAP, getImageCategory, getImageCabinSlug } from "@/lib/gallery-categories"
+import { IMAGE_CATEGORY_MAP } from "@/lib/gallery-categories"
 import type { Cabin } from "@/lib/cabins"
 import type { HostawayListingImage } from "@/types/hostaway"
 
@@ -9,6 +9,127 @@ export interface GalleryImage {
   src: string
   category: "exterior" | "interior" | "nature" | "details"
   cabinName: string
+}
+
+type GalleryCategory = GalleryImage["category"]
+
+const CATEGORY_LIMITS: Record<GalleryCategory, number> = {
+  exterior: 10,
+  interior: 10,
+  nature: 5,
+  details: 5,
+}
+
+const CATEGORY_KEYWORDS: Record<GalleryCategory, string[]> = {
+  exterior: ["exterior", "outside", "front", "backyard", "patio", "deck", "sunset", "view", "outdoor"],
+  interior: ["interior", "inside", "bedroom", "bathroom", "kitchen", "living", "sofa", "shower", "tub"],
+  nature: ["nature", "forest", "trees", "lake", "river", "mountain", "landscape", "bird", "greenery"],
+  details: ["detail", "amenity", "coffee", "decor", "closeup", "close-up", "feature"],
+}
+
+function normalizeImageUrl(url: string): string {
+  try {
+    const parsed = new URL(url)
+    return `${parsed.origin}${parsed.pathname}`.toLowerCase()
+  } catch {
+    return url.split("?")[0].toLowerCase()
+  }
+}
+
+function extractImageUuid(url: string): string | null {
+  const match = url.toLowerCase().match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/)
+  return match ? match[0] : null
+}
+
+function inferCategoryFromText(text: string): GalleryCategory {
+  const value = text.toLowerCase()
+
+  const categoryPriority: GalleryCategory[] = ["nature", "interior", "details", "exterior"]
+  for (const category of categoryPriority) {
+    if (CATEGORY_KEYWORDS[category].some((keyword) => value.includes(keyword))) {
+      return category
+    }
+  }
+
+  // Exterior is the safest default for hero/gallery composition.
+  return "exterior"
+}
+
+function dedupeImages(images: GalleryImage[]): GalleryImage[] {
+  const seen = new Set<string>()
+  const deduped: GalleryImage[] = []
+
+  images.forEach((img) => {
+    const key = normalizeImageUrl(img.src)
+    if (seen.has(key)) return
+    seen.add(key)
+    deduped.push(img)
+  })
+
+  return deduped
+}
+
+function selectBalancedImages(images: GalleryImage[]): GalleryImage[] {
+  const grouped: Record<GalleryCategory, GalleryImage[]> = {
+    exterior: [],
+    interior: [],
+    nature: [],
+    details: [],
+  }
+
+  images.forEach((img) => {
+    grouped[img.category].push(img)
+  })
+
+  const selected = Object.entries(CATEGORY_LIMITS).flatMap(([category, limit]) =>
+    grouped[category as GalleryCategory].slice(0, limit)
+  )
+
+  const selectedKeys = new Set(selected.map((img) => normalizeImageUrl(img.src)))
+  const remaining = images.filter((img) => !selectedKeys.has(normalizeImageUrl(img.src)))
+
+  remaining.forEach((img) => {
+    const category = img.category
+    if (grouped[category].length < CATEGORY_LIMITS[category]) {
+      grouped[category].push(img)
+    }
+  })
+
+  return [
+    ...grouped.exterior.slice(0, CATEGORY_LIMITS.exterior),
+    ...grouped.interior.slice(0, CATEGORY_LIMITS.interior),
+    ...grouped.nature.slice(0, CATEGORY_LIMITS.nature),
+    ...grouped.details.slice(0, CATEGORY_LIMITS.details),
+  ]
+}
+
+function buildFallbackImagesFromCabins(allCabins: Cabin[]): GalleryImage[] {
+  const fallbackImages: GalleryImage[] = []
+
+  allCabins.forEach((cabin) => {
+    cabin.images
+      .filter((src) => src && !src.includes("placeholder"))
+      .forEach((src) => {
+        const category = inferCategoryFromText(`${cabin.name} ${src}`)
+        fallbackImages.push({
+          src,
+          category,
+          cabinName: cabin.name,
+        })
+      })
+  })
+
+  if (fallbackImages.length > 0) {
+    return dedupeImages(fallbackImages)
+  }
+
+  return dedupeImages(
+    IMAGE_CATEGORY_MAP.map((img) => ({
+      src: img.url,
+      category: img.category,
+      cabinName: img.cabinSlug,
+    }))
+  )
 }
 
 /**
@@ -20,10 +141,53 @@ export async function getGalleryImages(): Promise<{
   images: GalleryImage[]
 }> {
   try {
+    const allCabins = await getAllCabinsFromHostaway()
+    const cabinNameMap = new Map<string, string>()
+    allCabins.forEach((cabin) => {
+      cabinNameMap.set(cabin.slug, cabin.name)
+    })
+
+    const categoryByNormalizedUrl = new Map<string, { category: GalleryCategory; cabinSlug: string }>()
+    const categoryByUuid = new Map<string, { category: GalleryCategory; cabinSlug: string }>()
+    const categoryByCabinIndex = new Map<string, Map<number, GalleryCategory>>()
+    const categoryByCabinSequence = new Map<string, GalleryCategory[]>()
+
+    IMAGE_CATEGORY_MAP.forEach((mapping) => {
+      const normalized = normalizeImageUrl(mapping.url)
+      if (!categoryByNormalizedUrl.has(normalized)) {
+        categoryByNormalizedUrl.set(normalized, {
+          category: mapping.category,
+          cabinSlug: mapping.cabinSlug,
+        })
+      }
+
+      const uuid = extractImageUuid(mapping.url)
+      if (uuid && !categoryByUuid.has(uuid)) {
+        categoryByUuid.set(uuid, {
+          category: mapping.category,
+          cabinSlug: mapping.cabinSlug,
+        })
+      }
+
+      if (typeof mapping.index === "number") {
+        const byIndex = categoryByCabinIndex.get(mapping.cabinSlug) || new Map<number, GalleryCategory>()
+        if (!byIndex.has(mapping.index)) {
+          byIndex.set(mapping.index, mapping.category)
+        }
+        categoryByCabinIndex.set(mapping.cabinSlug, byIndex)
+      } else {
+        // Legacy mappings without index use order as fallback.
+        const sequence = categoryByCabinSequence.get(mapping.cabinSlug) || []
+        sequence.push(mapping.category)
+        categoryByCabinSequence.set(mapping.cabinSlug, sequence)
+      }
+    })
+
     // Get full image data with captions from Hostaway
     const allImagesWithMetadata: Array<{
       url: string
       cabinName: string
+      cabinSlug: string
       index: number
       caption: string | null
       bookingEngineCaption: string | null
@@ -34,12 +198,13 @@ export async function getGalleryImages(): Promise<{
       try {
         const listingData = await getListing(listingId)
         const listingImages =
-          listingData.listingImage || (listingData as any).listingImages || []
+          listingData.listingImage ||
+          (listingData as any).listingImages ||
+          (listingData as any).listing?.listingImage ||
+          []
 
         // Get cabin name
-        const allCabins = await getAllCabinsFromHostaway()
-        const cabin = allCabins.find((c) => c.slug === slug)
-        const cabinName = cabin?.name || slug
+        const cabinName = cabinNameMap.get(slug) || slug
 
         listingImages
           .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
@@ -48,6 +213,7 @@ export async function getGalleryImages(): Promise<{
               allImagesWithMetadata.push({
                 url: img.url,
                 cabinName,
+                cabinSlug: slug,
                 index,
                 caption: img.caption,
                 bookingEngineCaption: img.bookingEngineCaption,
@@ -59,40 +225,27 @@ export async function getGalleryImages(): Promise<{
       }
     }
 
-    if (allImagesWithMetadata.length === 0) {
-      return {
-        bannerImage: "",
-        images: [],
-      }
-    }
-
-    // Pick the most stunning banner image - prefer the first exterior image from categorized images
-    // If no categorized images, fall back to first image
-    let bannerImage = allImagesWithMetadata[0]?.url || ""
-    const firstExterior = allImagesWithMetadata.find((img) => getImageCategory(img.url) === "exterior")
-    if (firstExterior) {
-      bannerImage = firstExterior.url
-    }
-
-    // Get cabin name mapping
-    const cabinNameMap = new Map<string, string>()
-    const allCabins = await getAllCabinsFromHostaway()
-    allCabins.forEach((cabin) => {
-      cabinNameMap.set(cabin.slug, cabin.name)
-    })
-
-    // Categorize images using hardcoded mapping
-    const categorizedImages: GalleryImage[] = allImagesWithMetadata
+    // Categorize images using explicit mappings only (URL/UUID/index).
+    // This keeps the website categories aligned with the categorization tool.
+    const categorizedImages = dedupeImages(
+      allImagesWithMetadata
       .map((img) => {
-        // Get category from hardcoded map
-        const category = getImageCategory(img.url)
-        const cabinSlug = getImageCabinSlug(img.url) || img.cabinName.toLowerCase()
-        const cabinName = cabinNameMap.get(cabinSlug) || img.cabinName
+        const normalizedUrl = normalizeImageUrl(img.url)
+        const uuid = extractImageUuid(img.url)
 
-        // Only include images that have been categorized in the hardcoded map
+        const mapped =
+          categoryByNormalizedUrl.get(normalizedUrl) ||
+          (uuid ? categoryByUuid.get(uuid) : undefined)
+        const categoryFromIndex = categoryByCabinIndex.get(img.cabinSlug)?.get(img.index)
+        const categoryFromSequence = categoryByCabinSequence.get(img.cabinSlug)?.[img.index]
+
+        const category = mapped?.category || categoryFromIndex || categoryFromSequence
         if (!category) {
           return null
         }
+
+        const cabinSlug = mapped?.cabinSlug || img.cabinSlug
+        const cabinName = cabinNameMap.get(cabinSlug) || img.cabinName
 
         return {
           src: img.url,
@@ -101,57 +254,18 @@ export async function getGalleryImages(): Promise<{
         }
       })
       .filter((img): img is GalleryImage => img !== null)
-
-    // Select best images for each category
-    const exteriorImages = categorizedImages
-      .filter((img) => img.category === "exterior")
-      .slice(0, 10)
-
-    const interiorImages = categorizedImages
-      .filter((img) => img.category === "interior")
-      .slice(0, 10)
-
-    const natureImages = categorizedImages
-      .filter((img) => img.category === "nature")
-      .slice(0, 5)
-
-    const detailsImages = categorizedImages
-      .filter((img) => img.category === "details")
-      .slice(0, 5)
-
-    // If categories are not filled, redistribute from remaining images
-    const selectedImages = [
-      ...exteriorImages,
-      ...interiorImages,
-      ...natureImages,
-      ...detailsImages,
-    ]
-
-    const selectedUrls = new Set(selectedImages.map((img) => img.src))
-    const remainingImages = categorizedImages.filter(
-      (img) => !selectedUrls.has(img.src)
     )
 
-    // Fill up categories that need more images
-    remainingImages.forEach((img) => {
-      if (exteriorImages.length < 10 && img.category === "exterior") {
-        exteriorImages.push(img)
-      } else if (interiorImages.length < 10 && img.category === "interior") {
-        interiorImages.push(img)
-      } else if (natureImages.length < 5 && img.category === "nature") {
-        natureImages.push(img)
-      } else if (detailsImages.length < 5 && img.category === "details") {
-        detailsImages.push(img)
-      }
-    })
+    let finalImages = selectBalancedImages(categorizedImages)
 
-    // Final combined list
-    const finalImages = [
-      ...exteriorImages.slice(0, 10),
-      ...interiorImages.slice(0, 10),
-      ...natureImages.slice(0, 5),
-      ...detailsImages.slice(0, 5),
-    ]
+    if (finalImages.length === 0) {
+      finalImages = selectBalancedImages(buildFallbackImagesFromCabins(allCabins))
+    }
+
+    const bannerImage =
+      finalImages.find((img) => img.category === "exterior")?.src ||
+      finalImages[0]?.src ||
+      ""
 
     return {
       bannerImage,
@@ -159,9 +273,22 @@ export async function getGalleryImages(): Promise<{
     }
   } catch (error) {
     console.error("Error fetching gallery images from Hostaway:", error)
+    const fallbackImages = selectBalancedImages(
+      dedupeImages(
+        IMAGE_CATEGORY_MAP.map((img) => ({
+          src: img.url,
+          category: img.category,
+          cabinName: img.cabinSlug,
+        }))
+      )
+    )
+
     return {
-      bannerImage: "",
-      images: [],
+      bannerImage:
+        fallbackImages.find((img) => img.category === "exterior")?.src ||
+        fallbackImages[0]?.src ||
+        "",
+      images: fallbackImages,
     }
   }
 }
