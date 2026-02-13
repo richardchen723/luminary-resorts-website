@@ -6,8 +6,9 @@ const nextConfig = {
   // Enable compression
   compress: true,
   images: {
-    // Vercel Image Optimization enabled - images will be cached on Vercel's CDN
-    // unoptimized: true, // Removed to enable Vercel's image optimization and CDN caching
+    // Disable Next.js image optimization so production does not depend on
+    // Vercel's paid image optimizer quota.
+    unoptimized: true,
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
