@@ -496,8 +496,17 @@ export default function BookingPage() {
           guests,
           // Send exact pricing from review page - this ensures payment uses same price
           pricing: {
+            nightlyRate: pricing.nightlyRate,
+            nights: pricing.nights,
+            subtotal: pricing.subtotal,
+            cleaningFee: pricing.cleaningFee,
+            tax: pricing.tax,
+            channelFee: pricing.channelFee,
+            petFee: pricing.petFee,
             total: pricing.total,
             currency: pricing.currency,
+            discount: pricing.discount,
+            discounted_subtotal: pricing.discounted_subtotal,
           },
         }),
       })
@@ -553,11 +562,14 @@ export default function BookingPage() {
             nightlyRate: pricing.nightlyRate,
             nights: pricing.nights,
             subtotal: pricing.subtotal,
+            discounted_subtotal: pricing.discounted_subtotal,
             cleaningFee: pricing.cleaningFee,
             tax: pricing.tax,
             channelFee: pricing.channelFee,
+            petFee: pricing.petFee,
             total: pricing.total,
             currency: pricing.currency,
+            discount: pricing.discount,
           },
           guestInfo: {
             firstName: guestInfo.firstName,

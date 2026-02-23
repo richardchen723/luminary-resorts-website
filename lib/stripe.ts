@@ -105,6 +105,16 @@ export async function getPaymentIntent(
 }
 
 /**
+ * Update metadata on an existing payment intent
+ */
+export async function updatePaymentIntentMetadata(
+  paymentIntentId: string,
+  metadata: Record<string, string>
+): Promise<Stripe.PaymentIntent> {
+  return await stripe.paymentIntents.update(paymentIntentId, { metadata })
+}
+
+/**
  * Create a refund
  */
 export async function createRefund(params: {

@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server'
 import { createPaymentIntent, createSetupIntent } from '@/lib/stripe'
 import { getListingIdBySlug } from '@/lib/listing-map'
 import { roundToTwoDecimals } from '@/lib/utils'
+import { buildStripeFeeMetadata } from '@/lib/stripe-fee-metadata'
 
 interface CreateIntentRequest {
   slug: string
@@ -18,8 +19,21 @@ interface CreateIntentRequest {
   guests: number
   // Exact pricing from review page - MUST be provided
   pricing?: {
+    nightlyRate: number
+    nights: number
+    subtotal: number
+    discounted_subtotal?: number
+    cleaningFee: number
+    tax: number
+    channelFee: number
+    petFee?: number
     total: number
-    currency?: string
+    currency: string
+    discount?: {
+      type: "percent" | "fixed"
+      value: number
+      amount: number
+    }
   }
 }
 
@@ -49,10 +63,12 @@ export async function POST(request: Request) {
     let totalAmount: number
     let currency: string = 'USD'
 
+    let feeMetadata: Record<string, string> = {}
     if (pricing && pricing.total && pricing.total > 0) {
       // Use the exact pricing from the review page
       totalAmount = Math.round(roundToTwoDecimals(pricing.total) * 100) // Convert to cents
       currency = pricing.currency || 'USD'
+      feeMetadata = buildStripeFeeMetadata(pricing)
     } else {
       // Fallback: pricing not provided (should not happen in normal flow)
       return NextResponse.json(
@@ -86,6 +102,7 @@ export async function POST(request: Request) {
         checkOut,
         guests: guests.toString(),
         setupIntentId: setupIntent.id, // Link setup intent to payment intent
+        ...feeMetadata,
       },
       description: `Booking for ${slug} from ${checkIn} to ${checkOut}`,
     })

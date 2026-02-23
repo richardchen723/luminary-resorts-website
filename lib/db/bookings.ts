@@ -132,6 +132,10 @@ export async function updateBooking(id: string, updates: Partial<Booking>): Prom
     fields.push(`hostaway_metadata = $${paramIndex++}`)
     values.push(updates.hostaway_metadata ? JSON.stringify(updates.hostaway_metadata) : null)
   }
+  if (updates.stripe_metadata !== undefined) {
+    fields.push(`stripe_metadata = $${paramIndex++}`)
+    values.push(updates.stripe_metadata ? JSON.stringify(updates.stripe_metadata) : null)
+  }
   if (updates.notes !== undefined) {
     fields.push(`notes = $${paramIndex++}`)
     values.push(updates.notes)

@@ -5,7 +5,7 @@
 
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { getPaymentIntent, confirmPaymentIntent } from "@/lib/stripe"
+import { getPaymentIntent, updatePaymentIntentMetadata } from "@/lib/stripe"
 import { createBookingOperation } from "@/lib/booking-operations"
 import { getListingIdBySlug } from "@/lib/listing-map"
 import { roundToTwoDecimals } from "@/lib/utils"
@@ -14,6 +14,8 @@ import { getCabinBySlugSync } from "@/lib/cabins"
 import { addMessageToConversation } from "@/lib/hostaway"
 import { getReferralCodeFromRequest } from "@/lib/discounts"
 import { createBookingAttribution } from "@/lib/attribution"
+import { buildStripeFeeMetadata } from "@/lib/stripe-fee-metadata"
+import { PaymentStatus } from "@/lib/db/schema"
 
 interface ConfirmPaymentRequest {
   paymentIntentId: string
@@ -53,6 +55,24 @@ interface ConfirmPaymentRequest {
     zipCode?: string
     country?: string
     specialRequests?: string
+  }
+}
+
+interface FinalPricing {
+  total: number
+  currency: string
+  nights: number
+  nightlyRate: number
+  subtotal: number
+  cleaningFee: number
+  tax: number
+  channelFee: number
+  petFee: number
+  discounted_subtotal?: number
+  discount?: {
+    type: "percent" | "fixed"
+    value: number
+    amount: number
   }
 }
 
@@ -98,8 +118,16 @@ export async function POST(request: Request) {
       )
     }
 
+    const stayNights = Math.max(
+      1,
+      Math.ceil(
+        (new Date(checkOut).getTime() - new Date(checkIn).getTime()) /
+          (1000 * 60 * 60 * 24)
+      )
+    )
+
     // Use exact pricing from review page - this is the source of truth
-    let finalPricing
+    let finalPricing: FinalPricing
     if (pricing && pricing.total && pricing.total > 0) {
       // Validate that pricing total matches payment intent amount (within 1 cent tolerance)
       const paymentAmountInDollars = paymentIntent.amount / 100
@@ -118,6 +146,10 @@ export async function POST(request: Request) {
       finalPricing = {
         total: roundToTwoDecimals(pricing.total),
         currency: pricing.currency || 'USD',
+        nights:
+          pricing.nights && pricing.nights > 0
+            ? Math.trunc(pricing.nights)
+            : stayNights,
         nightlyRate: roundToTwoDecimals(pricing.nightlyRate),
         subtotal: roundToTwoDecimals(pricing.subtotal),
         cleaningFee: roundToTwoDecimals(pricing.cleaningFee),
@@ -136,9 +168,6 @@ export async function POST(request: Request) {
       // Fallback: pricing not provided (should not happen in normal flow)
       // Use payment intent amount as total
       const paymentAmountInDollars = paymentIntent.amount / 100
-      const nights = Math.ceil(
-        (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)
-      )
       
       // Estimate breakdown from total (reverse calculation)
       // This is a fallback and should rarely be used
@@ -146,27 +175,58 @@ export async function POST(request: Request) {
       const estimatedCleaningFee = 100
       const estimatedTax = roundToTwoDecimals(estimatedSubtotal * 0.12)
       const estimatedChannelFee = roundToTwoDecimals(estimatedSubtotal * 0.02)
-      const estimatedNightlyRate = nights > 0 ? roundToTwoDecimals(estimatedSubtotal / nights) : 0
+      const estimatedNightlyRate =
+        stayNights > 0 ? roundToTwoDecimals(estimatedSubtotal / stayNights) : 0
       
       finalPricing = {
         total: roundToTwoDecimals(paymentAmountInDollars),
         currency: paymentIntent.currency || 'USD',
+        nights: stayNights,
         nightlyRate: estimatedNightlyRate,
         subtotal: estimatedSubtotal,
         cleaningFee: estimatedCleaningFee,
         tax: estimatedTax,
         channelFee: estimatedChannelFee,
+        petFee: 0,
       }
       
       console.warn('Pricing not provided in request, using estimated breakdown from payment intent amount')
     }
 
+    const stripeFeeMetadata = buildStripeFeeMetadata({
+      subtotal: finalPricing.subtotal,
+      discounted_subtotal: finalPricing.discounted_subtotal,
+      cleaningFee: finalPricing.cleaningFee,
+      tax: finalPricing.tax,
+      channelFee: finalPricing.channelFee,
+      petFee: finalPricing.petFee,
+      total: finalPricing.total,
+      nights: finalPricing.nights,
+      discount: finalPricing.discount
+        ? { amount: finalPricing.discount.amount }
+        : undefined,
+    })
+
+    try {
+      await updatePaymentIntentMetadata(paymentIntent.id, {
+        ...paymentIntent.metadata,
+        ...stripeFeeMetadata,
+      })
+    } catch (metadataError: any) {
+      // Preserve booking flow even if metadata sync fails
+      console.error(
+        `Failed to update payment intent metadata for ${paymentIntent.id}:`,
+        metadataError
+      )
+    }
+
     // Determine payment status based on payment intent status
     // With manual capture: 'requires_capture' = authorized but not charged (pending)
     // 'succeeded' = captured and charged
-    const paymentStatus = paymentIntent.status === 'succeeded' 
-      ? 'succeeded' as const 
-      : 'pending' as const // 'requires_capture' means authorized but not yet captured
+    const paymentStatus =
+      paymentIntent.status === "succeeded"
+        ? PaymentStatus.SUCCEEDED
+        : PaymentStatus.PENDING // 'requires_capture' means authorized but not yet captured
 
     // Create booking (Hostaway reservation + database storage)
     try {
@@ -189,6 +249,18 @@ export async function POST(request: Request) {
           currency: paymentIntent.currency,
           status: paymentIntent.status, // Store Stripe status for reference
           paymentMethodId: paymentMethodId || null, // Also store in metadata for easy access
+          feeBreakdown: {
+            subtotal: finalPricing.subtotal,
+            discountedSubtotal:
+              finalPricing.discounted_subtotal ?? finalPricing.subtotal,
+            baseRate: finalPricing.discounted_subtotal ?? finalPricing.subtotal,
+            bookingFee: finalPricing.channelFee,
+            cleaningFee: finalPricing.cleaningFee,
+            tax: finalPricing.tax,
+            petFee: finalPricing.petFee || 0,
+            total: finalPricing.total,
+            nights: finalPricing.nights,
+          },
         },
       })
 
