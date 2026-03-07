@@ -1,6 +1,6 @@
 import { getCalendarAvailability, getPricing } from "@/lib/hostaway"
 import { getListingIdBySlug, getAllListingIds, getSlugByListingId } from "@/lib/listing-map"
-import { calculateCalendarStatus, buildNextCheckInMap } from "@/lib/calendar-status"
+import { calculateCalendarStatus, buildNextCheckInMap, getEarliestCheckoutDate } from "@/lib/calendar-status"
 import { parseISO, format } from "date-fns"
 import type { Cabin } from "@/lib/cabins"
 import type { HostawayCalendarEntry } from "@/types/hostaway"
@@ -116,8 +116,20 @@ export async function checkCabinAvailability(
           
           // Step 3: Check-out date can be "open" or "checkout-only" (only if stay dates passed)
           if (isAvailable && allStayDatesValid) {
+            const earliestCheckoutDate = getEarliestCheckoutDate(checkInDate, calendarEntries)
+            if (checkOutDate < earliestCheckoutDate) {
+              isAvailable = false
+            }
+
             const checkOutDateInfo = calculateCalendarStatus(checkOutDate, calendarEntries, checkInDate, nextCheckInMap)
-            if (checkOutDateInfo.status !== "open" && checkOutDateInfo.status !== "checkout-only") {
+            if (
+              checkOutDateInfo.status !== "open" &&
+              checkOutDateInfo.status !== "checkout-only"
+            ) {
+              isAvailable = false
+            }
+
+            if (checkOutDateInfo.violatesSelectedMinimumStay) {
               isAvailable = false
             }
           }

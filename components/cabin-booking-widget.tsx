@@ -695,9 +695,10 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     const dateToCheck = startOfDay(date)
     const isPastDate = isBefore(dateToCheck, today)
     
-    // Determine if date is booked (solid-block) vs ineligible (checkout-only when no check-in)
+    const isMinStayBlocked = !!checkIn && !checkOut && !!dateInfo?.violatesSelectedMinimumStay
+    // Determine if date is booked (solid-block) vs ineligible due to check-in/checkout rules
     const isBooked = dateInfo?.status === "solid-block"
-    const isIneligible = dateInfo?.status === "checkout-only" && !checkIn
+    const isIneligible = (dateInfo?.status === "checkout-only" && !checkIn) || isMinStayBlocked
     // Only show tooltip for ineligible dates (grayed out), not for booked or open dates
     const hasUnavailableReason = isIneligible && dateInfo?.unavailableReason
 
@@ -712,7 +713,11 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
       "open": "",
     }
     
-    const statusClassName = dateInfo?.status ? statusClassNames[dateInfo.status] : ""
+    const statusClassName = isMinStayBlocked
+      ? "bg-muted/30 text-muted-foreground opacity-60"
+      : dateInfo?.status
+      ? statusClassNames[dateInfo.status]
+      : ""
 
     // Create the button with overlay for booked dates
     // Note: CalendarDayButton doesn't accept children, so we wrap it for the X icon overlay
@@ -726,6 +731,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
           // Add data attributes for potential CSS styling
           dateInfo?.status === "solid-block" && "data-solid-block data-booked",
           dateInfo?.status === "checkout-only" && "data-checkout-only",
+          isMinStayBlocked && "data-minimum-stay-blocked",
           isIneligible && "data-ineligible",
           dateInfo?.status === "open" && "data-open",
           className
@@ -966,6 +972,11 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                   
                   // Solid block is always disabled
                   if (dateInfo.status === "solid-block") {
+                    return true
+                  }
+
+                  // When selecting checkout, enforce the selected check-in's minimum stay
+                  if (checkIn && !checkOut && dateInfo.violatesSelectedMinimumStay) {
                     return true
                   }
                   

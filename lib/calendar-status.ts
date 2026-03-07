@@ -7,7 +7,7 @@
  * - Same-day turnover rules
  */
 
-import { format, parseISO, isAfter, isBefore, isSameDay, differenceInDays } from "date-fns"
+import { format, parseISO, isAfter, isBefore, isSameDay, differenceInDays, addDays } from "date-fns"
 import type { HostawayCalendarEntry, CalendarDateStatus } from "@/types/hostaway"
 
 export type { CalendarDateStatus }
@@ -18,9 +18,48 @@ export interface CalendarDateInfo {
   isCheckOutDate: boolean
   isWithinStay: boolean
   minimumStay: number | null
+  selectedCheckInMinimumStay: number | null
+  violatesSelectedMinimumStay: boolean
   price: number | null
   currency: string | null
   unavailableReason: string | null // Human-readable reason why date is unavailable (for tooltips)
+}
+
+function getDateKey(date: Date | string): string {
+  return typeof date === "string" ? date : format(date, "yyyy-MM-dd")
+}
+
+export function getMinimumStayForDate(
+  date: Date | string,
+  calendarData: Record<string, HostawayCalendarEntry>
+): number | null {
+  const entry = calendarData[getDateKey(date)]
+  return entry?.minimumStay ?? null
+}
+
+export function getEarliestCheckoutDate(
+  checkInDate: Date,
+  calendarData: Record<string, HostawayCalendarEntry>
+): Date {
+  const minimumStay = getMinimumStayForDate(checkInDate, calendarData)
+  return addDays(checkInDate, Math.max(minimumStay ?? 1, 1))
+}
+
+function buildCalendarDateInfo(
+  base: Omit<CalendarDateInfo, "selectedCheckInMinimumStay" | "violatesSelectedMinimumStay">,
+  selectedCheckInMinimumStay: number | null,
+  violatesSelectedMinimumStay: boolean
+): CalendarDateInfo {
+  const minimumStayReason = violatesSelectedMinimumStay && selectedCheckInMinimumStay
+    ? `Minimum stay is ${selectedCheckInMinimumStay} ${selectedCheckInMinimumStay === 1 ? "night" : "nights"}`
+    : null
+
+  return {
+    ...base,
+    selectedCheckInMinimumStay,
+    violatesSelectedMinimumStay,
+    unavailableReason: base.unavailableReason ?? minimumStayReason,
+  }
 }
 
 /**
@@ -76,6 +115,15 @@ export function calculateCalendarStatus(
 ): CalendarDateInfo {
   const dateStr = format(date, "yyyy-MM-dd")
   const entry = calendarData[dateStr]
+  const selectedCheckInMinimumStay = checkInDate
+    ? getMinimumStayForDate(checkInDate, calendarData)
+    : null
+  const violatesSelectedMinimumStay =
+    !!checkInDate &&
+    isAfter(date, checkInDate) &&
+    selectedCheckInMinimumStay !== null &&
+    selectedCheckInMinimumStay > 0 &&
+    differenceInDays(date, checkInDate) < selectedCheckInMinimumStay
   
   // Default values
   const defaultInfo: CalendarDateInfo = {
@@ -84,9 +132,14 @@ export function calculateCalendarStatus(
     isCheckOutDate: false,
     isWithinStay: false,
     minimumStay: null,
+    selectedCheckInMinimumStay,
+    violatesSelectedMinimumStay,
     price: null,
     currency: "USD",
-    unavailableReason: null,
+    unavailableReason:
+      violatesSelectedMinimumStay && selectedCheckInMinimumStay
+        ? `Minimum stay is ${selectedCheckInMinimumStay} ${selectedCheckInMinimumStay === 1 ? "night" : "nights"}`
+        : null,
   }
   
   // If no entry exists, assume available (optimistic availability)
@@ -130,7 +183,7 @@ export function calculateCalendarStatus(
   
   // Rule 1: If date is both check-in AND checkout, it's solid block
   if (isCheckInDate && isCheckOutDate) {
-    return {
+    return buildCalendarDateInfo({
       status: "solid-block",
       isCheckInDate: true,
       isCheckOutDate: true,
@@ -139,12 +192,12 @@ export function calculateCalendarStatus(
       price: entry.price || null,
       currency: "USD",
       unavailableReason: "Fully booked",
-    }
+    }, selectedCheckInMinimumStay, false)
   }
   
   // Rule 2: If date is within a stay (not check-in or checkout), it's solid block
   if (isWithinStay) {
-    return {
+    return buildCalendarDateInfo({
       status: "solid-block",
       isCheckInDate: false,
       isCheckOutDate: false,
@@ -153,12 +206,12 @@ export function calculateCalendarStatus(
       price: entry.price || null,
       currency: "USD",
       unavailableReason: "Fully booked",
-    }
+    }, selectedCheckInMinimumStay, false)
   }
   
   // Rule 3: If date is reserved (isAvailable = 0) but NOT a check-in date, it's solid block
   if (!isAvailable && !isCheckInDate) {
-    return {
+    return buildCalendarDateInfo({
       status: "solid-block",
       isCheckInDate: false,
       isCheckOutDate,
@@ -167,12 +220,12 @@ export function calculateCalendarStatus(
       price: entry.price || null,
       currency: "USD",
       unavailableReason: "Fully booked",
-    }
+    }, selectedCheckInMinimumStay, false)
   }
   
   // Rule 4: If date is reserved (isAvailable = 0) but IS a check-in date, it's checkout-only
   if (!isAvailable && isCheckInDate && !isCheckOutDate) {
-    return {
+    return buildCalendarDateInfo({
       status: "checkout-only",
       isCheckInDate: true,
       isCheckOutDate: false,
@@ -181,7 +234,7 @@ export function calculateCalendarStatus(
       price: entry.price || null,
       currency: "USD",
       unavailableReason: "Check-in unavailable — another guest checking in",
-    }
+    }, selectedCheckInMinimumStay, false)
   }
   
   // Rule 5: If date is available but within minimum stay to next check-in, it's checkout-only
@@ -216,7 +269,7 @@ export function calculateCalendarStatus(
         // Only restrict if we have a check-in date selected or if it's preventing a new check-in
         // If user has selected a check-in, this date can be used as checkout
         // If no check-in selected, this date cannot be used as check-in (checkout-only)
-        return {
+        return buildCalendarDateInfo({
           status: "checkout-only",
           isCheckInDate: false,
           isCheckOutDate,
@@ -225,13 +278,13 @@ export function calculateCalendarStatus(
           price: entry.price || null,
           currency: "USD",
           unavailableReason: `Minimum stay is ${minimumStay} ${minimumStay === 1 ? 'night' : 'nights'}`,
-        }
+        }, selectedCheckInMinimumStay, violatesSelectedMinimumStay)
       }
     }
   }
   
   // Rule 6: Default - open (fully available)
-  return {
+  return buildCalendarDateInfo({
     status: "open",
     isCheckInDate,
     isCheckOutDate,
@@ -240,7 +293,7 @@ export function calculateCalendarStatus(
     price: entry.price || null,
     currency: "USD",
     unavailableReason: null,
-  }
+  }, selectedCheckInMinimumStay, violatesSelectedMinimumStay)
 }
 
 /**

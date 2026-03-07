@@ -58,7 +58,7 @@ export function CabinCalendar({
   // Recalculate when calendar data or check-in date changes
   const dateStatuses = useMemo(() => {
     const statuses: Record<string, CalendarDateInfo> = {}
-    const checkInDate = selected?.from || null
+    const checkInDate = selected?.from && !selected?.to ? selected.from : null
     
     // Calculate status for all dates in calendar data
     for (const dateStr of Object.keys(calendarData)) {
@@ -72,7 +72,7 @@ export function CabinCalendar({
     }
     
     return statuses
-  }, [calendarData, selected?.from])
+  }, [calendarData, selected?.from, selected?.to])
 
   // Determine if a date is disabled
   const isDateDisabled = (date: Date): boolean => {
@@ -89,6 +89,11 @@ export function CabinCalendar({
     
     // Checkout-only is disabled if no check-in is selected
     if (dateInfo.status === "checkout-only" && !selected?.from) {
+      return true
+    }
+
+    // Dates before the selected check-in's minimum stay are not valid checkouts
+    if (selected?.from && !selected?.to && dateInfo.violatesSelectedMinimumStay) {
       return true
     }
     
@@ -131,10 +136,12 @@ export function CabinCalendar({
     const isStart = selected?.from && isSameDay(day, selected.from)
     const isEnd = selected?.to && isSameDay(day, selected.to)
     const isToday = format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd")
+    const isMinStayBlocked = !!selected?.from && !selected?.to && !!dateInfo?.violatesSelectedMinimumStay
     
     // Determine if date should be disabled
     const isDisabled = dateInfo?.status === "solid-block" ||
                       (dateInfo?.status === "checkout-only" && !selected?.from) ||
+                      isMinStayBlocked ||
                       disabled
 
     // Determine styling based on status
@@ -146,7 +153,11 @@ export function CabinCalendar({
       "open": "bg-background hover:bg-accent text-foreground",
     }
     
-    const statusStyle = dateInfo?.status ? statusStyles[dateInfo.status] : statusStyles["open"]
+    const statusStyle = isMinStayBlocked
+      ? "bg-muted/30 text-muted-foreground opacity-50 cursor-not-allowed"
+      : dateInfo?.status
+      ? statusStyles[dateInfo.status]
+      : statusStyles["open"]
 
     return (
       <button
