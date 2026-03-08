@@ -52,3 +52,33 @@ export function trackReservationConfirmed(cabinSlug: string, bookingId: string) 
     booking_id: bookingId,
   })
 }
+
+export function trackChatOpened(sourcePath: string) {
+  trackSEOEvent('chat_opened', {
+    source_path: sourcePath,
+  })
+}
+
+export function trackChatStarted(threadId: string) {
+  trackSEOEvent('chat_started', {
+    thread_id: threadId,
+  })
+}
+
+export function trackChatMessageSent(threadId: string) {
+  trackSEOEvent('chat_message_sent', {
+    thread_id: threadId,
+  })
+}
+
+export function trackChatReplyReceived(threadId: string) {
+  trackSEOEvent('chat_reply_received', {
+    thread_id: threadId,
+  })
+}
+
+export function trackChatConvertedToInquiry(threadId: string) {
+  trackSEOEvent('chat_converted_to_inquiry', {
+    thread_id: threadId,
+  })
+}

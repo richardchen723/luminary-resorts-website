@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Quicksand, Dancing_Script } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { GA4 } from "@/components/ga4"
+import { GuestChatProvider } from "@/components/guest-chat/guest-chat-provider"
 import "./globals.css"
 
 const quicksand = Quicksand({
@@ -67,7 +68,7 @@ export default function RootLayout({
       </head>
       <body className={`${quicksand.variable} ${dancingScript.variable} font-sans antialiased`}>
         <GA4 />
-        {children}
+        <GuestChatProvider>{children}</GuestChatProvider>
         <Analytics />
       </body>
     </html>

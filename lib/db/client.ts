@@ -102,7 +102,10 @@ export function isDatabaseAvailable(): boolean {
  * Execute a SQL query
  * Wraps both @vercel/postgres and standard postgres clients
  */
-export async function query(text: string, params?: any[]) {
+export async function query<T = any>(
+  text: string,
+  params?: any[]
+): Promise<{ rows: T[]; rowCount: number }> {
   if (!isDatabaseAvailable()) {
     throw new Error('Database is not configured. Please set POSTGRES_URL or DATABASE_URL environment variable.')
   }
@@ -111,13 +114,16 @@ export async function query(text: string, params?: any[]) {
     if (isVercelPostgres) {
       // @vercel/postgres API
       const result = await sql.query(text, params)
-      return result
+      return {
+        rows: (result.rows || []) as T[],
+        rowCount: result.rowCount || 0,
+      }
     } else {
       // pg library API (supports $1, $2 syntax natively)
       await ensurePgConnection()
       const result = await pgClient.query(text, params || [])
       return {
-        rows: result.rows || [],
+        rows: (result.rows || []) as T[],
         rowCount: result.rowCount || 0
       }
     }

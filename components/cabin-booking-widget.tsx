@@ -17,7 +17,7 @@ import { calculateCalendarStatus, buildNextCheckInMap } from "@/lib/calendar-sta
 import { cn } from "@/lib/utils"
 import { roundToTwoDecimals } from "@/lib/utils"
 import { DayButton } from "react-day-picker"
-import { InquiryModal } from "@/components/inquiry-modal"
+import { useGuestChat } from "@/components/guest-chat/guest-chat-provider"
 import { trackSelectDates, trackViewPricing, trackStartCheckout } from "@/lib/analytics"
 
 interface CabinBookingWidgetProps {
@@ -28,16 +28,10 @@ interface CabinBookingWidgetProps {
 export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWidgetProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { openChat } = useGuestChat()
   
   // Get listing ID from slug
   const listingId = getListingIdBySlug(cabinSlug)
-  if (!listingId) {
-    return (
-      <Card className={`p-6 ${className}`}>
-        <div className="text-destructive">Invalid cabin</div>
-      </Card>
-    )
-  }
   
   // Get initial values from URL params if available
   const initialCheckIn = searchParams.get("checkIn") || ""
@@ -86,13 +80,16 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
   const [error, setError] = useState<string | null>(null)
   const [calendarData, setCalendarData] = useState<Record<string, HostawayCalendarEntry>>({})
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false)
-  const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false)
-  const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false)
-  const [inquiryError, setInquiryError] = useState<string | null>(null)
 
   // Fetch calendar data for availability
   useEffect(() => {
     async function fetchCalendar() {
+      if (!listingId) {
+        setCalendarData({})
+        setIsLoadingCalendar(false)
+        return
+      }
+
       setIsLoadingCalendar(true)
       try {
         const response = await fetch(`/api/calendar/${listingId}`)
@@ -239,6 +236,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                   cleaningFee,
                   tax,
                   channelFee,
+                  petFee: 0,
                   total,
                   currency,
                   available: true,
@@ -530,65 +528,26 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
   }
 
   const handleSendInquiry = () => {
-    // Open inquiry modal instead of navigating to contact page
     if (checkIn && checkOut) {
-      setIsInquiryModalOpen(true)
-      setInquiryError(null)
-    }
-  }
+      const cabinName = cabinSlug
+        .split("-")
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ")
 
-  const handleInquirySubmit = async (data: {
-    firstName: string
-    lastName: string
-    email: string
-    phone: string
-    countryCode: string
-    message: string
-  }) => {
-    setIsSubmittingInquiry(true)
-    setInquiryError(null)
-
-    try {
-      if (!checkIn || !checkOut) {
-        throw new Error("Check-in and check-out dates are required")
-      }
-
-      const response = await fetch("/api/inquiry/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          slug: cabinSlug,
+      openChat({
+        initialIntent: "availability",
+        context: {
+          listingSlug: cabinSlug,
+          cabinName,
           checkIn,
           checkOut,
-          guests: parseInt(guests) || 2,
-          pets: pets !== "0" ? parseInt(pets) : undefined,
-          infants: infants !== "0" ? parseInt(infants) : undefined,
-          guestInfo: {
-            firstName: data.firstName,
-            lastName: data.lastName,
-            email: data.email,
-            phone: data.phone,
-            countryCode: data.countryCode,
-          },
-          message: data.message,
-        }),
+          guests: parseInt(guests, 10) || 2,
+          pets: pets !== "0" ? parseInt(pets, 10) : 0,
+          infants: infants !== "0" ? parseInt(infants, 10) : 0,
+          sourcePath: `/stay/${cabinSlug}`,
+          sourceType: "stay_page",
+        },
       })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to send inquiry")
-      }
-
-      // Success - modal will handle closing and showing success message
-    } catch (err: any) {
-      console.error("Error sending inquiry:", err)
-      setInquiryError(err.message || "Failed to send inquiry. Please try again.")
-      throw err // Re-throw so modal can handle it
-    } finally {
-      setIsSubmittingInquiry(false)
     }
   }
 
@@ -809,6 +768,14 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
   const calendarFromDate = useMemo(() => {
     return startOfDay(new Date())
   }, [])
+
+  if (!listingId) {
+    return (
+      <Card className={`p-6 ${className}`}>
+        <div className="text-destructive">Invalid cabin</div>
+      </Card>
+    )
+  }
 
   return (
     <Card className={`p-6 ${className}`}>
@@ -1226,19 +1193,6 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
           </Button>
         </div>
       </div>
-
-      {/* Inquiry Modal */}
-      <InquiryModal
-        open={isInquiryModalOpen}
-        onOpenChange={setIsInquiryModalOpen}
-        cabinName={cabinSlug.charAt(0).toUpperCase() + cabinSlug.slice(1)}
-        checkIn={checkIn || ""}
-        checkOut={checkOut || ""}
-        guests={guests}
-        pets={pets}
-        infants={infants}
-        onSubmit={handleInquirySubmit}
-      />
     </Card>
   )
 }

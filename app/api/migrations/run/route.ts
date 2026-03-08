@@ -157,6 +157,11 @@ const MIGRATION_003 = readFileSync(
   'utf-8'
 )
 
+const MIGRATION_004 = readFileSync(
+  join(process.cwd(), 'lib/db/migrations/004_guest_chat.sql'),
+  'utf-8'
+)
+
 export async function POST(request: Request) {
   try {
     // Security check - require secret key or allow in development
@@ -273,6 +278,24 @@ export async function POST(request: Request) {
       throw error
     }
 
+    // Run Migration 004
+    try {
+      console.log('Running Migration 004: Guest Chat...')
+      try {
+        await query(MIGRATION_004)
+        results.push('✅ Migration 004 completed successfully')
+      } catch (error: any) {
+        if (error.message?.includes('already exists') || error.message?.includes('duplicate')) {
+          results.push('✅ Migration 004 completed successfully (some objects may already exist)')
+        } else {
+          throw error
+        }
+      }
+    } catch (error: any) {
+      results.push(`❌ Migration 004 failed: ${error.message}`)
+      throw error
+    }
+
     // Verify tables exist
     try {
       const tablesResult = await query(
@@ -292,6 +315,15 @@ export async function POST(request: Request) {
       } else {
         const missing = expectedAffiliateTables.filter(t => !tables.includes(t))
         results.push(`⚠️ Missing affiliate marketing tables: ${missing.join(', ')}`)
+      }
+
+      const expectedChatTables = ['guest_chat_threads', 'guest_chat_messages']
+      const chatTables = expectedChatTables.filter(t => tables.includes(t))
+      if (chatTables.length === expectedChatTables.length) {
+        results.push(`✅ All guest chat tables verified: ${chatTables.join(', ')}`)
+      } else {
+        const missing = expectedChatTables.filter(t => !tables.includes(t))
+        results.push(`⚠️ Missing guest chat tables: ${missing.join(', ')}`)
       }
     } catch (error: any) {
       results.push(`⚠️ Could not verify tables: ${error.message}`)
