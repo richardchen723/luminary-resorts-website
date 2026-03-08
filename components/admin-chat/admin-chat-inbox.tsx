@@ -16,7 +16,9 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { trackChatConvertedToInquiry } from "@/lib/analytics"
 import { cabins } from "@/lib/cabins"
+import { isGuestChatPlaceholderEmail } from "@/lib/guest-chat-utils"
 import type {
+  GuestChatMessage,
   GuestChatListFilter,
   GuestChatThreadDetail,
   GuestChatThreadStatus,
@@ -73,6 +75,34 @@ function buildConversionDraft(thread: GuestChatThreadDetail | null): ConversionD
     infants: thread?.context.infants ? String(thread.context.infants) : "",
     guestPhone: thread?.guestPhone || "",
   }
+}
+
+function getGuestContactLabel(thread: Pick<GuestChatThreadSummary, "guestEmail" | "guestPhone">) {
+  if (thread.guestPhone) {
+    return thread.guestPhone
+  }
+
+  if (isGuestChatPlaceholderEmail(thread.guestEmail)) {
+    return "Phone-first chat"
+  }
+
+  return thread.guestEmail
+}
+
+function SystemMessageCard({ message }: { message: GuestChatMessage }) {
+  return (
+    <div className="flex justify-center">
+      <div className="max-w-[92%] rounded-2xl border border-border bg-muted/35 px-4 py-3 text-sm text-foreground">
+        <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          System
+        </p>
+        <p className="whitespace-pre-wrap leading-relaxed">{message.body}</p>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          {formatTimestamp(message.createdAt)}
+        </p>
+      </div>
+    </div>
+  )
 }
 
 export function AdminChatInbox({
@@ -398,7 +428,9 @@ export function AdminChatInbox({
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate font-medium text-foreground">{thread.guestName}</p>
-                          <p className="truncate text-sm text-muted-foreground">{thread.guestEmail}</p>
+                          <p className="truncate text-sm text-muted-foreground">
+                            {getGuestContactLabel(thread)}
+                          </p>
                         </div>
                         {thread.staffUnreadCount > 0 && (
                           <Badge>{thread.staffUnreadCount}</Badge>
@@ -440,7 +472,9 @@ export function AdminChatInbox({
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <CardTitle>{selectedThread.guestName}</CardTitle>
-                    <p className="mt-1 text-sm text-muted-foreground">{selectedThread.guestEmail}</p>
+                    {!isGuestChatPlaceholderEmail(selectedThread.guestEmail) && (
+                      <p className="mt-1 text-sm text-muted-foreground">{selectedThread.guestEmail}</p>
+                    )}
                     <p className="mt-1 text-sm text-muted-foreground">
                       {selectedThread.guestPhone || "No phone number yet"}
                     </p>
@@ -554,11 +588,7 @@ export function AdminChatInbox({
                       <div className="space-y-4 p-6">
                         {selectedThread.messages.map((message) => {
                           if (message.authorType === "system") {
-                            return (
-                              <div key={message.id} className="text-center text-xs text-muted-foreground">
-                                {message.body}
-                              </div>
-                            )
+                            return <SystemMessageCard key={message.id} message={message} />
                           }
 
                           const isGuestMessage = message.authorType === "guest"

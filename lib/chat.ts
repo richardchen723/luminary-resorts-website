@@ -5,6 +5,11 @@ import { addMessageToConversation, createInquiry } from "@/lib/hostaway"
 import { getListingIdBySlug } from "@/lib/listing-map"
 import { getCabinBySlugSync } from "@/lib/cabins"
 import { getTransporter } from "@/lib/email"
+import {
+  buildGuestChatPlaceholderEmail,
+  GUEST_CHAT_AUTOMATED_RESPONSE,
+  isGuestChatPlaceholderEmail,
+} from "@/lib/guest-chat-utils"
 import type { AdminUser } from "@/lib/auth"
 import type {
   AdminReplyInput,
@@ -58,8 +63,7 @@ export const guestChatContextSchema = z.object({
 
 export const createGuestChatThreadSchema = z.object({
   guestName: z.string().trim().min(1).max(255),
-  guestEmail: z.string().trim().email().max(255),
-  guestPhone: optionalStringField(50),
+  guestPhone: z.string().trim().min(1).max(50),
   message: z.string().trim().min(1).max(4000),
   intent: z
     .enum(["availability", "cabin_question", "special_request", "general"])
@@ -160,6 +164,7 @@ const THREAD_SELECT = `
       SELECT m.body
       FROM guest_chat_messages m
       WHERE m.thread_id = t.id
+        AND m.author_type <> 'system'
       ORDER BY m.created_at DESC
       LIMIT 1
     ) AS last_message_preview,
@@ -167,6 +172,7 @@ const THREAD_SELECT = `
       SELECT m.created_at
       FROM guest_chat_messages m
       WHERE m.thread_id = t.id
+        AND m.author_type <> 'system'
       ORDER BY m.created_at DESC
       LIMIT 1
     ) AS last_message_at,
@@ -443,6 +449,13 @@ export async function createGuestChatThread(
   const parsed = createGuestChatThreadSchema.parse(input)
   const context = normalizeContext(parsed.context)
   const guestToken = randomBytes(24).toString("hex")
+  const guestPhone = normalizePhone(parsed.guestPhone)
+
+  if (!guestPhone) {
+    throw new Error("Phone number is required")
+  }
+
+  const guestEmail = buildGuestChatPlaceholderEmail(guestPhone)
 
   const insertedThread = await query<{ id: string }>(
     `
@@ -473,8 +486,8 @@ export async function createGuestChatThread(
     [
       guestToken,
       parsed.guestName.trim(),
-      parsed.guestEmail.trim().toLowerCase(),
-      normalizePhone(parsed.guestPhone),
+      guestEmail,
+      guestPhone,
       parsed.intent || "general",
       context.sourcePath,
       context.sourceType,
@@ -499,6 +512,23 @@ export async function createGuestChatThread(
       VALUES ($1, 'guest', $2, 'not_applicable')
     `,
     [threadId, parsed.message.trim()]
+  )
+
+  await query(
+    `
+      INSERT INTO guest_chat_messages (thread_id, author_type, body, hostaway_sync_status)
+      VALUES ($1, 'system', $2, 'not_applicable')
+    `,
+    [threadId, GUEST_CHAT_AUTOMATED_RESPONSE]
+  )
+
+  await query(
+    `
+      UPDATE guest_chat_threads
+      SET last_guest_read_at = NOW()
+      WHERE id = $1
+    `,
+    [threadId]
   )
 
   const thread = await getGuestChatThreadForGuest(threadId, guestToken)
@@ -1068,11 +1098,16 @@ async function sendChatAlertEmail(options: {
     const transporter = getTransporter()
     const adminLink = getAdminLink(options.thread.id)
     const context = options.thread.context
+    const hasReplyableEmail = !isGuestChatPlaceholderEmail(options.thread.guestEmail)
+    const emailHtml = hasReplyableEmail
+      ? `<p><strong>Email:</strong> ${options.thread.guestEmail}</p>`
+      : ""
+    const emailText = hasReplyableEmail ? `Email: ${options.thread.guestEmail}` : null
 
     const html = `
       <h2>${options.heading}</h2>
       <p><strong>Guest:</strong> ${options.thread.guestName}</p>
-      <p><strong>Email:</strong> ${options.thread.guestEmail}</p>
+      ${emailHtml}
       <p><strong>Phone:</strong> ${options.thread.guestPhone || "Not provided"}</p>
       <p><strong>Intent:</strong> ${options.thread.intent.replace(/_/g, " ")}</p>
       <p><strong>Status:</strong> ${options.thread.status}</p>
@@ -1096,13 +1131,13 @@ async function sendChatAlertEmail(options: {
         transporter.sendMail({
           from: `"Luminary Resorts Chat" <${process.env.GMAIL_USER}>`,
           to: recipient,
-          replyTo: options.thread.guestEmail,
+          replyTo: hasReplyableEmail ? options.thread.guestEmail : undefined,
           subject: options.subject,
           html,
           text: [
             options.heading,
             `Guest: ${options.thread.guestName}`,
-            `Email: ${options.thread.guestEmail}`,
+            emailText,
             `Phone: ${options.thread.guestPhone || "Not provided"}`,
             `Intent: ${options.thread.intent.replace(/_/g, " ")}`,
             `Status: ${options.thread.status}`,

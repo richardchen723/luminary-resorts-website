@@ -29,6 +29,7 @@ import type {
   CreateGuestChatThreadInput,
   GuestChatContext,
   GuestChatIntent,
+  GuestChatMessage,
   GuestChatThreadDetail,
 } from "@/types/guest-chat"
 
@@ -44,13 +45,6 @@ type GuestChatContextValue = {
 }
 
 const GuestChatContextObject = createContext<GuestChatContextValue | null>(null)
-
-const intentOptions: Array<{ value: GuestChatIntent; label: string }> = [
-  { value: "availability", label: "Availability" },
-  { value: "cabin_question", label: "Cabin question" },
-  { value: "special_request", label: "Special request" },
-  { value: "general", label: "General question" },
-]
 
 function getSourceType(pathname: string): string {
   if (pathname.startsWith("/stay/")) return "stay_page"
@@ -88,6 +82,22 @@ function countStaffMessages(thread: GuestChatThreadDetail | null) {
   return thread.messages.filter((message) => message.authorType === "staff").length
 }
 
+function SystemMessageCard({ message }: { message: GuestChatMessage }) {
+  return (
+    <div className="flex justify-center">
+      <div className="max-w-[92%] rounded-2xl border border-border bg-muted/35 px-4 py-3 text-sm text-foreground">
+        <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Luminary Resorts
+        </p>
+        <p className="whitespace-pre-wrap leading-relaxed">{message.body}</p>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          {formatMessageTime(message.createdAt)}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export function GuestChatProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/"
   const isAdminPath = pathname.startsWith("/admin") || pathname.startsWith("/admin-auth")
@@ -100,7 +110,6 @@ export function GuestChatProvider({ children }: { children: React.ReactNode }) {
   const [pendingContext, setPendingContext] = useState<Partial<GuestChatContext> | null>(null)
   const [selectedIntent, setSelectedIntent] = useState<GuestChatIntent>("general")
   const [guestName, setGuestName] = useState("")
-  const [guestEmail, setGuestEmail] = useState("")
   const [guestPhone, setGuestPhone] = useState("")
   const [draftMessage, setDraftMessage] = useState("")
   const previousStaffMessageCount = useRef(0)
@@ -180,9 +189,8 @@ export function GuestChatProvider({ children }: { children: React.ReactNode }) {
     if (!thread) return
 
     setGuestName(thread.guestName)
-    setGuestEmail(thread.guestEmail)
     setGuestPhone(thread.guestPhone || "")
-  }, [thread?.id, thread?.guestEmail, thread?.guestName, thread?.guestPhone])
+  }, [thread?.id, thread?.guestName, thread?.guestPhone])
 
   useEffect(() => {
     if (!isOpen || isAdminPath) return
@@ -236,8 +244,8 @@ export function GuestChatProvider({ children }: { children: React.ReactNode }) {
 
   async function handleCreateThread() {
     const message = draftMessage.trim()
-    if (!guestName.trim() || !guestEmail.trim() || !message) {
-      setError("Please add your name, email, and message.")
+    if (!guestName.trim() || !guestPhone.trim() || !message) {
+      setError("Please add your name, phone number, and message.")
       return
     }
 
@@ -246,8 +254,7 @@ export function GuestChatProvider({ children }: { children: React.ReactNode }) {
 
     const payload: CreateGuestChatThreadInput = {
       guestName: guestName.trim(),
-      guestEmail: guestEmail.trim(),
-      guestPhone: guestPhone.trim() || null,
+      guestPhone: guestPhone.trim(),
       message,
       intent: selectedIntent,
       context: mergeContext(pendingContext, buildDefaultContext()) || undefined,
@@ -432,11 +439,7 @@ export function GuestChatProvider({ children }: { children: React.ReactNode }) {
                         <div className="space-y-4 p-4">
                           {thread.messages.map((message) => {
                             if (message.authorType === "system") {
-                              return (
-                                <div key={message.id} className="text-center text-xs text-muted-foreground">
-                                  {message.body}
-                                </div>
-                              )
+                              return <SystemMessageCard key={message.id} message={message} />
                             }
 
                             const isGuestMessage = message.authorType === "guest"
@@ -496,9 +499,10 @@ export function GuestChatProvider({ children }: { children: React.ReactNode }) {
                           {!thread.guestPhone && (
                             <div className="mb-3">
                               <Input
+                                type="tel"
                                 value={guestPhone}
                                 onChange={(event) => setGuestPhone(event.target.value)}
-                                placeholder="Phone (optional, helps with booking requests)"
+                                placeholder="Phone number"
                               />
                             </div>
                           )}
@@ -564,28 +568,6 @@ export function GuestChatProvider({ children }: { children: React.ReactNode }) {
                     <div className="flex min-h-0 flex-1 flex-col">
                       <ScrollArea className="min-h-0 flex-1">
                         <div className="space-y-5 p-4">
-                          <div>
-                            <p className="text-sm font-medium text-foreground">
-                              What can we help with?
-                            </p>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {intentOptions.map((option) => (
-                                <button
-                                  key={option.value}
-                                  type="button"
-                                  onClick={() => setSelectedIntent(option.value)}
-                                  className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                                    selectedIntent === option.value
-                                      ? "border-primary bg-primary text-primary-foreground"
-                                      : "border-border bg-background text-foreground hover:bg-muted"
-                                  }`}
-                                >
-                                  {option.label}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
                           <div className="grid gap-3">
                             <Input
                               value={guestName}
@@ -593,15 +575,10 @@ export function GuestChatProvider({ children }: { children: React.ReactNode }) {
                               placeholder="Your name"
                             />
                             <Input
-                              type="email"
-                              value={guestEmail}
-                              onChange={(event) => setGuestEmail(event.target.value)}
-                              placeholder="Your email"
-                            />
-                            <Input
+                              type="tel"
                               value={guestPhone}
                               onChange={(event) => setGuestPhone(event.target.value)}
-                              placeholder="Phone (optional)"
+                              placeholder="Phone number (required)"
                             />
                             <Textarea
                               value={draftMessage}

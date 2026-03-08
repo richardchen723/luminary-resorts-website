@@ -68,8 +68,7 @@ export interface GuestChatThreadDetail extends GuestChatThreadSummary {
 
 export interface CreateGuestChatThreadInput {
   guestName: string
-  guestEmail: string
-  guestPhone?: string | null
+  guestPhone: string
   message: string
   intent?: GuestChatIntent
   context?: Partial<GuestChatContext>
