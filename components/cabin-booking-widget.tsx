@@ -74,6 +74,9 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
       type: "percent" | "fixed"
       value: number
       amount: number
+      source?: "referral" | "coupon"
+      code?: string
+      name?: string
     }
     discounted_subtotal?: number
   } | null>(null)
@@ -106,18 +109,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     fetchCalendar()
   }, [listingId])
 
-  // Load pricing when dates change or calendar data is available
-  useEffect(() => {
-    if (checkIn && checkOut && checkIn < checkOut) {
-      loadPricing()
-      // Track date selection
-      trackSelectDates(cabinSlug, checkIn)
-    } else {
-      setPricing(null)
-    }
-  }, [checkIn, checkOut, guests, pets, listingId, calendarData, cabinSlug])
-
-  const loadPricing = async () => {
+  const loadPricing = useCallback(async () => {
     if (!listingId) {
       setError("Invalid cabin")
       return
@@ -303,6 +295,9 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
             type: discount.discount_type,
             value: discount.discount_value,
             amount: discount.discount_amount,
+            source: discount.source,
+            code: discount.code,
+            name: discount.name,
           } : undefined,
           discounted_subtotal: discount ? discount.discounted_subtotal : undefined,
         }
@@ -484,7 +479,18 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     } finally {
       setIsLoadingPricing(false)
     }
-  }
+  }, [calendarData, cabinSlug, checkIn, checkOut, guests, listingId, pets])
+
+  // Load pricing when dates change or calendar data is available
+  useEffect(() => {
+    if (checkIn && checkOut && checkIn < checkOut) {
+      loadPricing()
+      // Track date selection
+      trackSelectDates(cabinSlug, checkIn)
+    } else {
+      setPricing(null)
+    }
+  }, [checkIn, checkOut, guests, pets, listingId, calendarData, cabinSlug, loadPricing])
 
   const handleBookNow = () => {
     if (!checkIn || !checkOut) {

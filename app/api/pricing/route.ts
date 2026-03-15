@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { getPricing } from "@/lib/hostaway"
-import { calculateDiscount, getReferralCodeFromRequest } from "@/lib/discounts"
+import { calculateCheckoutDiscount, getReferralCodeFromRequest } from "@/lib/discounts"
 
 interface PricingRequest {
   listingId: number
   startDate: string
   endDate: string
   guests: number
+  couponCode?: string | null
 }
 
 /**
@@ -19,7 +20,7 @@ interface PricingRequest {
 export async function POST(request: Request) {
   try {
     const body: PricingRequest = await request.json()
-    const { listingId, startDate, endDate, guests } = body
+    const { listingId, startDate, endDate, guests, couponCode } = body
 
     // Validate required fields
     if (!listingId || !startDate || !endDate || !guests) {
@@ -47,8 +48,20 @@ export async function POST(request: Request) {
 
     // Apply discount even if Hostaway returned unavailable but we have a subtotal
     // This handles the case where Hostaway API fails but we can still calculate discount
-    if (referralCode && pricing.breakdown?.subtotal && pricing.breakdown.subtotal > 0) {
-      const discount = await calculateDiscount(referralCode, pricing.breakdown.subtotal)
+    if ((couponCode || referralCode) && pricing.breakdown?.subtotal && pricing.breakdown.subtotal > 0) {
+      let discount = null
+      try {
+        discount = await calculateCheckoutDiscount({
+          couponCode,
+          referralCode,
+          subtotal: pricing.breakdown.subtotal,
+        })
+      } catch (discountError: any) {
+        return NextResponse.json(
+          { error: discountError.message || "Coupon code is invalid" },
+          { status: 400 }
+        )
+      }
 
       if (discount) {
         // Apply discount to subtotal
@@ -77,6 +90,9 @@ export async function POST(request: Request) {
             type: discount.discount_type,
             value: discount.discount_value,
             amount: discount.discount_amount,
+            source: discount.source,
+            code: discount.code,
+            name: discount.name,
           },
           discounted_subtotal: discountedSubtotal,
           taxes: newTax,

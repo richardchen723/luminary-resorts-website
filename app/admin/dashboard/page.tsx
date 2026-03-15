@@ -7,7 +7,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/route"
 import { getAdminUserByEmail } from "@/lib/auth"
 import { query } from "@/lib/db/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, DollarSign, FileText, UserCheck } from "lucide-react"
+import { Users, DollarSign, FileText, UserCheck, TicketPercent } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
@@ -155,6 +155,12 @@ export default async function AdminDashboardPage() {
               <Link href="/admin/reports">
                 <FileText className="mr-2 h-4 w-4" />
                 View Reports
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link href="/admin/coupons">
+                <TicketPercent className="mr-2 h-4 w-4" />
+                Manage Coupons
               </Link>
             </Button>
             {adminUser.role === "owner" && (

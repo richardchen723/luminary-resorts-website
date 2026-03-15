@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { calculateDiscount, getReferralCodeFromRequest } from "@/lib/discounts"
+import { calculateCheckoutDiscount, getReferralCodeFromRequest } from "@/lib/discounts"
 
 interface DiscountRequest {
   subtotal: number
+  couponCode?: string | null
 }
 
 /**
@@ -14,7 +15,7 @@ interface DiscountRequest {
 export async function POST(request: Request) {
   try {
     const body: DiscountRequest = await request.json()
-    const { subtotal } = body
+    const { subtotal, couponCode } = body
 
     if (!subtotal || subtotal <= 0) {
       return NextResponse.json(
@@ -27,13 +28,24 @@ export async function POST(request: Request) {
     const cookieStore = await cookies()
     const referralCode = getReferralCodeFromRequest(cookieStore)
 
-    if (!referralCode) {
+    if (!couponCode && !referralCode) {
       return NextResponse.json({ discount: null }, { status: 200 })
     }
 
-    const discount = await calculateDiscount(referralCode, subtotal)
+    try {
+      const discount = await calculateCheckoutDiscount({
+        couponCode,
+        referralCode,
+        subtotal,
+      })
 
-    return NextResponse.json({ discount }, { status: 200 })
+      return NextResponse.json({ discount }, { status: 200 })
+    } catch (discountError: any) {
+      return NextResponse.json(
+        { error: discountError.message || "Coupon code is invalid" },
+        { status: 400 }
+      )
+    }
   } catch (error: any) {
     console.error("Error calculating discount:", error)
     return NextResponse.json(

@@ -138,6 +138,9 @@ export interface HostawayPricingBreakdown {
     type: "percent" | "fixed"
     value: number
     amount: number
+    source?: "referral" | "coupon"
+    code?: string
+    name?: string
   }
   discounted_subtotal?: number
 }

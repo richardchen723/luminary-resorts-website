@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { 
   LayoutDashboard, 
   MessageSquare,
+  TicketPercent,
   Users, 
   FileText, 
   UserCheck,
@@ -63,6 +64,7 @@ export default async function AdminLayout({
   const navItems = [
     { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/chat", label: "Guest Chat", icon: MessageSquare },
+    { href: "/admin/coupons", label: "Coupons", icon: TicketPercent },
     { href: "/admin/influencers", label: "Influencers", icon: Users },
     { href: "/admin/reports", label: "Reports", icon: FileText },
   ]

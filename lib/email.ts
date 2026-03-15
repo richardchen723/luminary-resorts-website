@@ -31,6 +31,19 @@ interface BookingConfirmationEmailData {
   }
 }
 
+interface CouponEmailData {
+  guestFirstName: string
+  guestEmail: string
+  couponCode: string
+  couponName: string
+  description?: string | null
+  discount: {
+    type: "percent" | "fixed"
+    value: number
+  }
+  expiresAt?: string | Date | null
+}
+
 /**
  * Get Gmail transporter (reusable)
  */
@@ -548,5 +561,287 @@ export async function sendBookingConfirmationEmail(data: BookingConfirmationEmai
     console.error("Error sending booking confirmation email:", error)
     // Don't throw - email failure shouldn't break the booking process
     // But log it for monitoring
+  }
+}
+
+function formatCouponOfferLabel(discount: CouponEmailData["discount"]): string {
+  return discount.type === "percent"
+    ? `${discount.value}% off your stay`
+    : `$${discount.value.toFixed(2)} off your stay`
+}
+
+function generateCouponEmail(data: CouponEmailData): string {
+  const offerLabel = formatCouponOfferLabel(data.discount)
+  const formattedExpiry = data.expiresAt
+    ? format(new Date(data.expiresAt), "MMMM d, yyyy")
+    : null
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Luminary Resorts Offer</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&family=Dancing+Script:wght@400;500;600;700&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      line-height: 1.6;
+      color: #2C2E21;
+      background-color: #F5F5F0;
+    }
+
+    .email-container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #FFFFFF;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #2C2E21 0%, #3A3D2F 100%);
+      padding: 40px 30px;
+      text-align: center;
+    }
+
+    .logo {
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      color: #F5F5F0;
+      margin-bottom: 8px;
+    }
+
+    .tagline {
+      font-family: 'Dancing Script', cursive;
+      font-size: 18px;
+      color: rgba(245, 245, 240, 0.9);
+    }
+
+    .content {
+      padding: 40px 30px;
+    }
+
+    .offer-card {
+      background: linear-gradient(180deg, #FAF8F1 0%, #F4EFE3 100%);
+      border: 1px solid #E8E0D0;
+      border-radius: 16px;
+      padding: 28px;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .offer-card h1 {
+      font-size: 28px;
+      margin-bottom: 18px;
+      color: #2C2E21;
+    }
+
+    .coupon-code {
+      display: inline-block;
+      padding: 14px 22px;
+      border-radius: 999px;
+      background-color: #2C2E21;
+      color: #F5F5F0;
+      font-size: 24px;
+      letter-spacing: 0.18em;
+      font-weight: 700;
+    }
+
+    .section {
+      margin-bottom: 24px;
+    }
+
+    .section h2 {
+      font-size: 18px;
+      margin-bottom: 8px;
+      color: #2C2E21;
+    }
+
+    .details {
+      background-color: #FAFAFA;
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .details-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .details-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .details-table td {
+      padding: 10px 0;
+      border-bottom: 1px solid #E0E0E0;
+      vertical-align: top;
+    }
+
+    .detail-label {
+      color: #666;
+      font-size: 14px;
+      padding-right: 12px;
+      white-space: nowrap;
+    }
+
+    .detail-value {
+      color: #2C2E21;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .cta {
+      display: inline-block;
+      margin-top: 18px;
+      padding: 14px 20px;
+      border-radius: 999px;
+      background-color: #A88659;
+      color: #FFFFFF !important;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .footer {
+      padding: 28px 30px 36px;
+      background-color: #2C2E21;
+      color: rgba(245, 245, 240, 0.85);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .footer a {
+      color: #F5F5F0;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="header">
+      <div class="logo">LUMINARY RESORTS</div>
+      <div class="tagline">Love stays here</div>
+    </div>
+
+    <div class="content">
+      <div class="offer-card">
+        <h1>${offerLabel}</h1>
+        <div class="coupon-code">${data.couponCode}</div>
+      </div>
+
+      <div class="section">
+        <h2>Hi ${data.guestFirstName},</h2>
+        <p>
+          We saved a little something for your next escape with Luminary Resorts.
+          Enter the code above at checkout and your offer will be applied automatically.
+        </p>
+      </div>
+
+      <div class="section">
+        <div class="details">
+          <table role="presentation" class="details-table" cellspacing="0" cellpadding="0">
+            <tr>
+              <td class="detail-label">Offer:&nbsp;</td>
+              <td class="detail-value">${offerLabel}</td>
+            </tr>
+            <tr>
+              <td class="detail-label">Coupon code:&nbsp;</td>
+              <td class="detail-value">${data.couponCode}</td>
+            </tr>
+            ${formattedExpiry ? `
+            <tr>
+              <td class="detail-label">Valid through:&nbsp;</td>
+              <td class="detail-value">${formattedExpiry}</td>
+            </tr>
+            ` : ""}
+          </table>
+        </div>
+      </div>
+
+      ${data.description ? `
+      <div class="section">
+        <h2>Offer details</h2>
+        <p>${data.description}</p>
+      </div>
+      ` : ""}
+
+      <div class="section">
+        <p>
+          When you're ready, start your booking and enter the code during checkout.
+        </p>
+        <a class="cta" href="https://luminaryresorts.com">Plan Your Stay</a>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p><strong>Luminary Resorts at Hilltop</strong></p>
+      <p>50 Snowhill Rd, Coldspring TX, 77331</p>
+      <p>Phone: <a href="tel:+14045908346">(404) 590-8346</a></p>
+      <p>Email: <a href="mailto:lydia@luminaryresorts.com">lydia@luminaryresorts.com</a></p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim()
+}
+
+function generateCouponEmailText(data: CouponEmailData): string {
+  const offerLabel = formatCouponOfferLabel(data.discount)
+  const formattedExpiry = data.expiresAt
+    ? format(new Date(data.expiresAt), "MMMM d, yyyy")
+    : null
+
+  return `
+LUMINARY RESORTS
+Love stays here
+
+Hi ${data.guestFirstName},
+
+We saved a little something for your next escape with Luminary Resorts.
+
+Offer: ${offerLabel}
+Coupon code: ${data.couponCode}
+${formattedExpiry ? `Valid through: ${formattedExpiry}\n` : ""}${data.description ? `Details: ${data.description}\n` : ""}Enter this code at checkout and your offer will be applied automatically.
+
+Plan your stay: https://luminaryresorts.com
+
+Luminary Resorts at Hilltop
+50 Snowhill Rd, Coldspring TX, 77331
+Phone: (404) 590-8346
+Email: lydia@luminaryresorts.com
+  `.trim()
+}
+
+export async function sendCouponCodeEmail(data: CouponEmailData): Promise<void> {
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    console.warn("Gmail credentials not configured. Skipping coupon email send.")
+    return
+  }
+
+  try {
+    const transporter = getTransporter()
+    const subject = `${formatCouponOfferLabel(data.discount)} from Luminary Resorts`
+
+    await transporter.sendMail({
+      from: `"Luminary Resorts" <${process.env.GMAIL_USER}>`,
+      to: data.guestEmail,
+      replyTo: process.env.GMAIL_USER,
+      subject,
+      html: generateCouponEmail(data),
+      text: generateCouponEmailText(data),
+    })
+
+    console.log(`Coupon email sent to ${data.guestEmail}`)
+  } catch (error) {
+    console.error("Error sending coupon email:", error)
+    throw error
   }
 }

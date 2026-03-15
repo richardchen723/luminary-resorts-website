@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useSearchParams, useParams, useRouter } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -19,6 +19,81 @@ import { roundToTwoDecimals } from "@/lib/utils"
 import { trackReservationConfirmed } from "@/lib/analytics"
 type BookingStep = "review" | "guest" | "payment" | "confirmation"
 
+type PricingDiscount = {
+  type: "percent" | "fixed"
+  value: number
+  amount: number
+  source?: "referral" | "coupon"
+  code?: string
+  name?: string
+}
+
+type PricingState = {
+  nightlyRate: number
+  nights: number
+  subtotal: number
+  cleaningFee: number
+  tax: number
+  channelFee: number
+  petFee: number
+  total: number
+  currency: string
+  discount?: PricingDiscount
+  discounted_subtotal?: number
+}
+
+function formatCouponInput(value: string): string {
+  const normalized = value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 10)
+  if (normalized.length <= 5) {
+    return normalized
+  }
+  return `${normalized.slice(0, 5)}-${normalized.slice(5)}`
+}
+
+function applyDiscountToPricing(
+  currentPricing: PricingState,
+  discount: {
+    discount_type: "percent" | "fixed"
+    discount_value: number
+    discount_amount: number
+    discounted_subtotal: number
+    source?: "referral" | "coupon"
+    code?: string
+    name?: string
+  } | null
+): PricingState {
+  const currentEffectiveSubtotal = currentPricing.discounted_subtotal ?? currentPricing.subtotal
+  const taxRate = currentEffectiveSubtotal > 0 ? currentPricing.tax / currentEffectiveSubtotal : 0.12
+  const channelFeeRate = currentEffectiveSubtotal > 0 ? currentPricing.channelFee / currentEffectiveSubtotal : 0.02
+  const nextSubtotal = discount ? discount.discounted_subtotal : currentPricing.subtotal
+  const nextTax = roundToTwoDecimals(nextSubtotal * taxRate)
+  const nextChannelFee = roundToTwoDecimals(nextSubtotal * channelFeeRate)
+
+  return {
+    ...currentPricing,
+    tax: nextTax,
+    channelFee: nextChannelFee,
+    total: roundToTwoDecimals(
+      nextSubtotal +
+        currentPricing.cleaningFee +
+        nextTax +
+        nextChannelFee +
+        currentPricing.petFee
+    ),
+    discount: discount
+      ? {
+          type: discount.discount_type,
+          value: discount.discount_value,
+          amount: discount.discount_amount,
+          source: discount.source,
+          code: discount.code,
+          name: discount.name,
+        }
+      : undefined,
+    discounted_subtotal: discount ? discount.discounted_subtotal : undefined,
+  }
+}
+
 export default function BookingPage() {
   const params = useParams()
   const searchParams = useSearchParams()
@@ -35,28 +110,19 @@ export default function BookingPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [currentStep, setCurrentStep] = useState<BookingStep>("review")
   const [calendarData, setCalendarData] = useState<Record<string, HostawayCalendarEntry>>({})
-  const [pricing, setPricing] = useState<{
-    nightlyRate: number
-    nights: number
-    subtotal: number
-    cleaningFee: number
-    tax: number
-    channelFee: number
-    petFee: number
-    total: number
-    currency: string
-    discount?: {
-      type: "percent" | "fixed"
-      value: number
-      amount: number
-    }
-    discounted_subtotal?: number
-  } | null>(null)
+  const [pricing, setPricing] = useState<PricingState | null>(null)
   const [guestInfo, setGuestInfo] = useState<Partial<HostawayGuestInfo>>({})
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [setupIntentClientSecret, setSetupIntentClientSecret] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false)
+  const [couponInput, setCouponInput] = useState("")
+  const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null)
+  const [couponMessage, setCouponMessage] = useState<{
+    type: "success" | "error"
+    text: string
+  } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [bookingConfirmation, setBookingConfirmation] = useState<{
     confirmationCode: string
@@ -116,32 +182,38 @@ export default function BookingPage() {
       // This ensures exact same price as shown on cabin detail page
       const pricingKey = `pricing_${slug}_${checkIn}_${checkOut}_${guests}_${pets}_${infants}`
       try {
-        const cachedPricing = sessionStorage.getItem(pricingKey)
-        if (cachedPricing) {
-          const parsed = JSON.parse(cachedPricing)
-          // Verify the cached pricing is for the same dates, guests, pets, and infants
-          if (parsed.checkIn === checkIn && parsed.checkOut === checkOut && parsed.guests === guests && parsed.pets === pets && parsed.infants === infants) {
-            // Use cached pricing if it's less than 10 minutes old
-            if (Date.now() - parsed.timestamp < 10 * 60 * 1000) {
-              // Recalculate pet fee in case pets changed
-              const petFee = roundToTwoDecimals(pets > 0 ? 50 : 0) // $50 flat fee
-              // Recalculate total: if there's a discounted subtotal, use it; otherwise use regular subtotal
-              const subtotalToUse = parsed.discounted_subtotal || parsed.subtotal
-              const totalWithPetFee = roundToTwoDecimals(subtotalToUse + parsed.cleaningFee + parsed.tax + parsed.channelFee + petFee)
-              setPricing({
-                nightlyRate: parsed.nightlyRate,
-                nights: parsed.nights,
-                subtotal: parsed.subtotal,
-                cleaningFee: parsed.cleaningFee,
-                tax: parsed.tax,
-                channelFee: parsed.channelFee,
-                petFee,
-                total: totalWithPetFee,
-                currency: parsed.currency,
-                discount: parsed.discount,
-                discounted_subtotal: parsed.discounted_subtotal,
-              })
-              return
+        if (!appliedCouponCode) {
+          const cachedPricing = sessionStorage.getItem(pricingKey)
+          if (cachedPricing) {
+            const parsed = JSON.parse(cachedPricing)
+            // Verify the cached pricing is for the same dates, guests, pets, and infants
+            if (parsed.checkIn === checkIn && parsed.checkOut === checkOut && parsed.guests === guests && parsed.pets === pets && parsed.infants === infants) {
+              // Use cached pricing if it's less than 10 minutes old
+              if (Date.now() - parsed.timestamp < 10 * 60 * 1000) {
+                if (parsed.discount && !parsed.discount.source) {
+                  // Refresh old cached discounts so checkout metadata stays complete.
+                } else {
+                  // Recalculate pet fee in case pets changed
+                  const petFee = roundToTwoDecimals(pets > 0 ? 50 : 0) // $50 flat fee
+                  // Recalculate total: if there's a discounted subtotal, use it; otherwise use regular subtotal
+                  const subtotalToUse = parsed.discounted_subtotal || parsed.subtotal
+                  const totalWithPetFee = roundToTwoDecimals(subtotalToUse + parsed.cleaningFee + parsed.tax + parsed.channelFee + petFee)
+                  setPricing({
+                    nightlyRate: parsed.nightlyRate,
+                    nights: parsed.nights,
+                    subtotal: parsed.subtotal,
+                    cleaningFee: parsed.cleaningFee,
+                    tax: parsed.tax,
+                    channelFee: parsed.channelFee,
+                    petFee,
+                    total: totalWithPetFee,
+                    currency: parsed.currency,
+                    discount: parsed.discount,
+                    discounted_subtotal: parsed.discounted_subtotal,
+                  })
+                  return
+                }
+              }
             }
           }
         }
@@ -205,6 +277,7 @@ export default function BookingPage() {
               },
               body: JSON.stringify({
                 subtotal: subtotalFromCalendar,
+                couponCode: appliedCouponCode,
               }),
             })
             
@@ -212,6 +285,14 @@ export default function BookingPage() {
             if (discountResponse.ok) {
               const discountData = await discountResponse.json()
               discount = discountData.discount || null
+            } else if (appliedCouponCode) {
+              const discountError = await discountResponse.json().catch(() => ({ error: "Coupon code is invalid" }))
+              setCouponMessage({
+                type: "error",
+                text: discountError.error || "Coupon code is invalid",
+              })
+              setAppliedCouponCode(null)
+              return
             }
             
             const subtotalToUse = discount ? discount.discounted_subtotal : subtotalFromCalendar
@@ -236,6 +317,9 @@ export default function BookingPage() {
                 type: discount.discount_type,
                 value: discount.discount_value,
                 amount: discount.discount_amount,
+                source: discount.source,
+                code: discount.code,
+                name: discount.name,
               } : undefined,
               discounted_subtotal: discount ? discount.discounted_subtotal : undefined,
             })
@@ -286,6 +370,7 @@ export default function BookingPage() {
                 startDate: checkIn,
                 endDate: checkOut,
                 guests,
+                couponCode: appliedCouponCode,
               }),
             })
 
@@ -350,6 +435,14 @@ export default function BookingPage() {
                 pricingSuccess = true
                 break
               }
+            } else if (response.status === 400 && appliedCouponCode) {
+              const pricingError = await response.json().catch(() => ({ error: "Coupon code is invalid" }))
+              setCouponMessage({
+                type: "error",
+                text: pricingError.error || "Coupon code is invalid",
+              })
+              setAppliedCouponCode(null)
+              return
             }
             
             // If API call failed or no breakdown, wait before retry (except on last attempt)
@@ -439,7 +532,73 @@ export default function BookingPage() {
     return () => {
       abortController.abort()
     }
-  }, [slug, checkIn, checkOut, guests, pets, calendarData])
+  }, [slug, checkIn, checkOut, guests, pets, calendarData, infants, appliedCouponCode])
+
+  const handleApplyCoupon = async () => {
+    if (!pricing) {
+      setCouponMessage({
+        type: "error",
+        text: "Pricing must load before you can apply a coupon.",
+      })
+      return
+    }
+
+    const formattedCode = formatCouponInput(couponInput)
+    if (!formattedCode) {
+      setCouponMessage({
+        type: "error",
+        text: "Enter a coupon code first.",
+      })
+      return
+    }
+
+    setIsApplyingCoupon(true)
+    setCouponMessage(null)
+
+    try {
+      const response = await fetch("/api/pricing/discount", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          subtotal: pricing.subtotal,
+          couponCode: formattedCode,
+        }),
+      })
+
+      const payload = await response.json()
+      if (!response.ok || !payload.discount) {
+        throw new Error(payload.error || "Coupon code is invalid")
+      }
+
+      setAppliedCouponCode(payload.discount.code || formattedCode)
+      setCouponInput(payload.discount.code || formattedCode)
+      setCouponMessage({
+        type: "success",
+        text: `Coupon ${payload.discount.code || formattedCode} applied.`,
+      })
+      setPricing((currentPricing) =>
+        currentPricing ? applyDiscountToPricing(currentPricing, payload.discount) : currentPricing
+      )
+    } catch (couponError: any) {
+      setCouponMessage({
+        type: "error",
+        text: couponError.message || "Coupon code is invalid",
+      })
+    } finally {
+      setIsApplyingCoupon(false)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCouponCode(null)
+    setCouponInput("")
+    setCouponMessage(null)
+    setPricing((currentPricing) =>
+      currentPricing ? applyDiscountToPricing(currentPricing, null) : currentPricing
+    )
+  }
 
   const handleNext = () => {
     if (currentStep === "review") {
@@ -470,14 +629,7 @@ export default function BookingPage() {
     }
   }
 
-  // Create payment intent when moving to payment step
-  useEffect(() => {
-    if (currentStep === "payment" && !clientSecret && pricing && cabin) {
-      createPaymentIntent()
-    }
-  }, [currentStep, clientSecret, pricing, cabin])
-
-  const createPaymentIntent = async () => {
+  const createPaymentIntent = useCallback(async () => {
     if (!cabin || !checkIn || !checkOut || !pricing) return
 
     setIsSubmitting(true)
@@ -508,6 +660,7 @@ export default function BookingPage() {
             discount: pricing.discount,
             discounted_subtotal: pricing.discounted_subtotal,
           },
+          couponCode: appliedCouponCode,
         }),
       })
 
@@ -526,7 +679,14 @@ export default function BookingPage() {
     } finally {
       setIsSubmitting(false)
     }
-  }
+  }, [appliedCouponCode, cabin, checkIn, checkOut, guests, pricing, slug])
+
+  // Create payment intent when moving to payment step
+  useEffect(() => {
+    if (currentStep === "payment" && !clientSecret && pricing && cabin) {
+      createPaymentIntent()
+    }
+  }, [currentStep, clientSecret, pricing, cabin, createPaymentIntent])
 
   const handlePaymentSuccess = async (paymentIntentId: string, paymentMethodId?: string) => {
     if (!cabin || !checkIn || !checkOut || !guestInfo.firstName || !guestInfo.lastName || !guestInfo.email || !guestInfo.phone) {
@@ -555,6 +715,7 @@ export default function BookingPage() {
           checkIn,
           checkOut,
           guests,
+          couponCode: appliedCouponCode,
           pets,
           infants,
           // Send exact pricing from review page - this ensures booking uses same price
@@ -694,6 +855,15 @@ export default function BookingPage() {
               pets={pets}
               infants={infants}
               pricing={pricing}
+              coupon={{
+                value: couponInput,
+                appliedCode: appliedCouponCode,
+                isApplying: isApplyingCoupon,
+                message: couponMessage,
+              }}
+              onCouponChange={(value) => setCouponInput(formatCouponInput(value))}
+              onCouponApply={handleApplyCoupon}
+              onCouponRemove={handleRemoveCoupon}
             />
           )}
 

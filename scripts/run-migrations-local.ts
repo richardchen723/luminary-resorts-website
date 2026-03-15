@@ -15,6 +15,8 @@ import { join } from 'path'
 const MIGRATION_001 = readFileSync(join(process.cwd(), 'lib/db/migrations/001_initial_schema.sql'), 'utf-8')
 const MIGRATION_002 = readFileSync(join(process.cwd(), 'lib/db/migrations/002_add_calendar_reservations.sql'), 'utf-8')
 const MIGRATION_003 = readFileSync(join(process.cwd(), 'lib/db/migrations/003_affiliate_marketing.sql'), 'utf-8')
+const MIGRATION_004 = readFileSync(join(process.cwd(), 'lib/db/migrations/004_guest_chat.sql'), 'utf-8')
+const MIGRATION_005 = readFileSync(join(process.cwd(), 'lib/db/migrations/005_coupon_codes.sql'), 'utf-8')
 
 async function runMigrations() {
   console.log('🚀 Starting database migrations...\n')
@@ -102,6 +104,52 @@ async function runMigrations() {
     throw error
   }
 
+  // Run Migration 004
+  try {
+    console.log('📦 Running Migration 004: Guest Chat...')
+    const statements = MIGRATION_004.split(';').filter(s => s.trim().length > 0 && !s.trim().startsWith('--'))
+    
+    for (const statement of statements) {
+      const trimmed = statement.trim()
+      if (trimmed) {
+        try {
+          await query(trimmed)
+        } catch (error: any) {
+          if (!error.message?.includes('already exists') && !error.message?.includes('duplicate')) {
+            console.warn('  ⚠️  Warning:', error.message)
+          }
+        }
+      }
+    }
+    console.log('✅ Migration 004 completed successfully\n')
+  } catch (error: any) {
+    console.error('❌ Migration 004 failed:', error.message)
+    throw error
+  }
+
+  // Run Migration 005
+  try {
+    console.log('📦 Running Migration 005: Coupon Codes...')
+    const statements = MIGRATION_005.split(';').filter(s => s.trim().length > 0 && !s.trim().startsWith('--'))
+    
+    for (const statement of statements) {
+      const trimmed = statement.trim()
+      if (trimmed) {
+        try {
+          await query(trimmed)
+        } catch (error: any) {
+          if (!error.message?.includes('already exists') && !error.message?.includes('duplicate')) {
+            console.warn('  ⚠️  Warning:', error.message)
+          }
+        }
+      }
+    }
+    console.log('✅ Migration 005 completed successfully\n')
+  } catch (error: any) {
+    console.error('❌ Migration 005 failed:', error.message)
+    throw error
+  }
+
   // Verify tables exist
   try {
     console.log('🔍 Verifying tables...')
@@ -123,7 +171,11 @@ async function runMigrations() {
       'incentive_rules',
       'booking_attributions',
       'commission_ledger',
-      'incentive_audit_log'
+      'incentive_audit_log',
+      'guest_chat_threads',
+      'guest_chat_messages',
+      'coupon_codes',
+      'coupon_redemptions'
     ]
     const missingTables = expectedTables.filter(t => !tables.includes(t))
     

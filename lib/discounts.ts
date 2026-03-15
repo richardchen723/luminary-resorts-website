@@ -3,6 +3,7 @@
  */
 
 import { getActiveIncentiveForReferral } from "./incentives"
+import { validateCouponForCheckout } from "./coupons"
 
 export interface DiscountResult {
   discount_type: "percent" | "fixed"
@@ -10,6 +11,10 @@ export interface DiscountResult {
   discount_amount: number
   original_subtotal: number
   discounted_subtotal: number
+  source?: "referral" | "coupon"
+  code?: string
+  coupon_id?: string
+  name?: string
 }
 
 /**
@@ -54,7 +59,52 @@ export async function calculateDiscount(
     discount_amount: subtotal - discountAmount,
     original_subtotal: subtotal,
     discounted_subtotal: discountAmount,
+    source: "referral",
+    code: referralCode,
   }
+}
+
+/**
+ * Calculate discount for a coupon code
+ */
+export async function calculateCouponCodeDiscount(
+  couponCode: string,
+  subtotal: number
+): Promise<DiscountResult> {
+  const result = await validateCouponForCheckout(couponCode, subtotal)
+
+  return {
+    discount_type: result.discount.discount_type,
+    discount_value: result.discount.discount_value,
+    discount_amount: result.discount.discount_amount,
+    original_subtotal: result.discount.original_subtotal,
+    discounted_subtotal: result.discount.discounted_subtotal,
+    source: "coupon",
+    code: result.discount.code,
+    coupon_id: result.discount.coupon_id,
+    name: result.discount.name,
+  }
+}
+
+/**
+ * Apply checkout discount with coupon precedence over referral cookies
+ */
+export async function calculateCheckoutDiscount(params: {
+  couponCode?: string | null
+  referralCode?: string | null
+  subtotal: number
+}): Promise<DiscountResult | null> {
+  const normalizedCoupon = params.couponCode?.trim()
+
+  if (normalizedCoupon) {
+    return calculateCouponCodeDiscount(normalizedCoupon, params.subtotal)
+  }
+
+  if (params.referralCode) {
+    return calculateDiscount(params.referralCode, params.subtotal)
+  }
+
+  return null
 }
 
 /**

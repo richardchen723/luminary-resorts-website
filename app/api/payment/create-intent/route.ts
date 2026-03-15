@@ -11,12 +11,14 @@ import { createPaymentIntent, createSetupIntent } from '@/lib/stripe'
 import { getListingIdBySlug } from '@/lib/listing-map'
 import { roundToTwoDecimals } from '@/lib/utils'
 import { buildStripeFeeMetadata } from '@/lib/stripe-fee-metadata'
+import { validateCouponPricing } from '@/lib/coupons'
 
 interface CreateIntentRequest {
   slug: string
   checkIn: string
   checkOut: string
   guests: number
+  couponCode?: string | null
   // Exact pricing from review page - MUST be provided
   pricing?: {
     nightlyRate: number
@@ -33,6 +35,9 @@ interface CreateIntentRequest {
       type: "percent" | "fixed"
       value: number
       amount: number
+      source?: "referral" | "coupon"
+      code?: string
+      name?: string
     }
   }
 }
@@ -40,7 +45,7 @@ interface CreateIntentRequest {
 export async function POST(request: Request) {
   try {
     const body: CreateIntentRequest = await request.json()
-    const { slug, checkIn, checkOut, guests, pricing } = body
+    const { slug, checkIn, checkOut, guests, couponCode, pricing } = body
 
     // Validate required fields
     if (!slug || !checkIn || !checkOut || !guests) {
@@ -65,6 +70,30 @@ export async function POST(request: Request) {
 
     let feeMetadata: Record<string, string> = {}
     if (pricing && pricing.total && pricing.total > 0) {
+      if (couponCode) {
+        try {
+          await validateCouponPricing(couponCode, {
+            subtotal: pricing.subtotal,
+            discounted_subtotal: pricing.discounted_subtotal,
+            cleaningFee: pricing.cleaningFee,
+            tax: pricing.tax,
+            channelFee: pricing.channelFee,
+            petFee: pricing.petFee,
+            total: pricing.total,
+            discount: pricing.discount ? {
+              type: pricing.discount.type,
+              value: pricing.discount.value,
+              amount: pricing.discount.amount,
+            } : undefined,
+          })
+        } catch (couponError: any) {
+          return NextResponse.json(
+            { error: couponError.message || 'Coupon code is no longer valid' },
+            { status: 400 }
+          )
+        }
+      }
+
       // Use the exact pricing from the review page
       totalAmount = Math.round(roundToTwoDecimals(pricing.total) * 100) // Convert to cents
       currency = pricing.currency || 'USD'
@@ -86,6 +115,7 @@ export async function POST(request: Request) {
         checkIn,
         checkOut,
         guests: guests.toString(),
+        couponCode: couponCode || "",
       },
       description: `Payment method setup for booking ${slug} from ${checkIn} to ${checkOut}`,
     })
@@ -102,6 +132,9 @@ export async function POST(request: Request) {
         checkOut,
         guests: guests.toString(),
         setupIntentId: setupIntent.id, // Link setup intent to payment intent
+        couponCode: couponCode || "",
+        discountSource: pricing?.discount?.source || "",
+        discountCode: pricing?.discount?.code || "",
         ...feeMetadata,
       },
       description: `Booking for ${slug} from ${checkIn} to ${checkOut}`,

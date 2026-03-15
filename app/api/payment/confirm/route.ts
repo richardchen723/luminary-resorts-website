@@ -16,6 +16,12 @@ import { getReferralCodeFromRequest } from "@/lib/discounts"
 import { createBookingAttribution } from "@/lib/attribution"
 import { buildStripeFeeMetadata } from "@/lib/stripe-fee-metadata"
 import { PaymentStatus } from "@/lib/db/schema"
+import {
+  releaseCouponRedemption,
+  redeemCouponRedemption,
+  reserveCouponRedemption,
+  validateCouponPricing,
+} from "@/lib/coupons"
 
 interface ConfirmPaymentRequest {
   paymentIntentId: string
@@ -24,6 +30,7 @@ interface ConfirmPaymentRequest {
   checkIn: string
   checkOut: string
   guests: number
+  couponCode?: string | null
   pets?: number
   infants?: number
   // Exact pricing from review page - MUST be provided
@@ -42,6 +49,9 @@ interface ConfirmPaymentRequest {
       type: "percent" | "fixed"
       value: number
       amount: number
+      source?: "referral" | "coupon"
+      code?: string
+      name?: string
     }
   }
   guestInfo: {
@@ -69,17 +79,20 @@ interface FinalPricing {
   channelFee: number
   petFee: number
   discounted_subtotal?: number
-  discount?: {
-    type: "percent" | "fixed"
-    value: number
-    amount: number
-  }
+      discount?: {
+        type: "percent" | "fixed"
+        value: number
+        amount: number
+        source?: "referral" | "coupon"
+        code?: string
+        name?: string
+      }
 }
 
 export async function POST(request: Request) {
   try {
     const body: ConfirmPaymentRequest = await request.json()
-    const { paymentIntentId, paymentMethodId, slug, checkIn, checkOut, guests, pets = 0, infants = 0, pricing, guestInfo } = body
+    const { paymentIntentId, paymentMethodId, slug, checkIn, checkOut, guests, couponCode, pets = 0, infants = 0, pricing, guestInfo } = body
 
     // Validate required fields
     if (!paymentIntentId || !slug || !checkIn || !checkOut || !guests || !guestInfo) {
@@ -207,10 +220,40 @@ export async function POST(request: Request) {
         : undefined,
     })
 
+    let validatedCoupon:
+      | Awaited<ReturnType<typeof validateCouponPricing>>
+      | null = null
+
+    if (couponCode && pricing) {
+      try {
+        validatedCoupon = await validateCouponPricing(couponCode, {
+          subtotal: pricing.subtotal,
+          discounted_subtotal: pricing.discounted_subtotal,
+          cleaningFee: pricing.cleaningFee,
+          tax: pricing.tax,
+          channelFee: pricing.channelFee,
+          petFee: pricing.petFee,
+          total: pricing.total,
+          discount: pricing.discount ? {
+            type: pricing.discount.type,
+            value: pricing.discount.value,
+            amount: pricing.discount.amount,
+          } : undefined,
+        })
+      } catch (couponError: any) {
+        return NextResponse.json(
+          { error: couponError.message || "Coupon code is no longer valid" },
+          { status: 400 }
+        )
+      }
+    }
+
     try {
       await updatePaymentIntentMetadata(paymentIntent.id, {
         ...paymentIntent.metadata,
         ...stripeFeeMetadata,
+        couponCode: validatedCoupon?.coupon.code || "",
+        couponId: validatedCoupon?.coupon.id || "",
       })
     } catch (metadataError: any) {
       // Preserve booking flow even if metadata sync fails
@@ -227,6 +270,22 @@ export async function POST(request: Request) {
       paymentIntent.status === "succeeded"
         ? PaymentStatus.SUCCEEDED
         : PaymentStatus.PENDING // 'requires_capture' means authorized but not yet captured
+
+    if (validatedCoupon) {
+      try {
+        await reserveCouponRedemption({
+          couponCode: validatedCoupon.coupon.code,
+          paymentIntentId,
+          guestEmail: guestInfo.email,
+          discountAmount: validatedCoupon.discount.discount_amount,
+        })
+      } catch (reservationError: any) {
+        return NextResponse.json(
+          { error: reservationError.message || "Coupon code is no longer available" },
+          { status: 400 }
+        )
+      }
+    }
 
     // Create booking (Hostaway reservation + database storage)
     try {
@@ -261,6 +320,14 @@ export async function POST(request: Request) {
             total: finalPricing.total,
             nights: finalPricing.nights,
           },
+          coupon: validatedCoupon ? {
+            id: validatedCoupon.coupon.id,
+            code: validatedCoupon.coupon.code,
+            name: validatedCoupon.coupon.name,
+            discountType: validatedCoupon.coupon.discount_type,
+            discountValue: validatedCoupon.coupon.discount_value,
+            discountAmount: validatedCoupon.discount.discount_amount,
+          } : null,
         },
       })
 
@@ -270,7 +337,7 @@ export async function POST(request: Request) {
       const cookieStore = await cookies()
       const referralCode = getReferralCodeFromRequest(cookieStore)
       
-      if (referralCode && pricing) {
+      if (referralCode && pricing && pricing.discount?.source === "referral") {
         try {
           // Calculate discount amount (original subtotal - discounted subtotal)
           // If pricing has discount info, use it; otherwise calculate from subtotal
@@ -290,6 +357,14 @@ export async function POST(request: Request) {
         } catch (attributionError: any) {
           // Log error but don't fail the booking
           console.warn(`⚠️  Failed to create booking attribution: ${attributionError.message}`)
+        }
+      }
+
+      if (validatedCoupon) {
+        try {
+          await redeemCouponRedemption(paymentIntentId, booking.id)
+        } catch (redemptionError: any) {
+          console.warn(`⚠️  Failed to finalize coupon redemption: ${redemptionError.message}`)
         }
       }
       
@@ -345,6 +420,14 @@ export async function POST(request: Request) {
       })
     } catch (error: any) {
       console.error('Error creating booking:', error)
+
+      if (validatedCoupon) {
+        try {
+          await releaseCouponRedemption(paymentIntentId)
+        } catch (releaseError: any) {
+          console.warn(`⚠️  Failed to release coupon reservation: ${releaseError.message}`)
+        }
+      }
       
       // If Hostaway reservation was created but database failed, we have a problem
       // For now, return error - in production, you might want to queue a retry

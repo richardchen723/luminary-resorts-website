@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Calendar, Users, Home } from "lucide-react"
 import type { Cabin } from "@/lib/cabins"
 import { differenceInCalendarDays, format, parseISO } from "date-fns"
+import { CouponCodeCard } from "@/components/booking-steps/coupon-code-card"
 
 interface StepReviewProps {
   cabin: Cabin
@@ -27,9 +28,24 @@ interface StepReviewProps {
       type: "percent" | "fixed"
       value: number
       amount: number
+      source?: "referral" | "coupon"
+      code?: string
+      name?: string
     }
     discounted_subtotal?: number
   } | null
+  coupon: {
+    value: string
+    appliedCode: string | null
+    isApplying: boolean
+    message: {
+      type: "success" | "error"
+      text: string
+    } | null
+  }
+  onCouponChange: (value: string) => void
+  onCouponApply: () => void
+  onCouponRemove: () => void
 }
 
 export function StepReview({
@@ -40,10 +56,17 @@ export function StepReview({
   pets = 0,
   infants = 0,
   pricing,
+  coupon,
+  onCouponChange,
+  onCouponApply,
+  onCouponRemove,
 }: StepReviewProps) {
   const checkInDate = parseISO(checkIn)
   const checkOutDate = parseISO(checkOut)
   const nights = differenceInCalendarDays(checkOutDate, checkInDate)
+  const discountLabel = pricing?.discount?.source === "coupon"
+    ? `Coupon ${pricing.discount.code || ""}`.trim()
+    : "Discount"
 
   return (
     <div className="space-y-6">
@@ -94,6 +117,16 @@ export function StepReview({
         </div>
       </Card>
 
+      <CouponCodeCard
+        value={coupon.value}
+        appliedCode={coupon.appliedCode}
+        isApplying={coupon.isApplying}
+        message={coupon.message}
+        onChange={onCouponChange}
+        onApply={onCouponApply}
+        onRemove={onCouponRemove}
+      />
+
       {pricing && pricing.total > 0 && (
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4">Price Summary</h3>
@@ -112,7 +145,7 @@ export function StepReview({
             {pricing.discount && pricing.discount.amount > 0 && (
               <div className="flex justify-between text-sm text-green-600">
                 <span className="text-muted-foreground">
-                  Discount {pricing.discount.type === "percent" ? `(${pricing.discount.value}%)` : ""}
+                  {discountLabel} {pricing.discount.type === "percent" ? `(${pricing.discount.value}%)` : ""}
                 </span>
                 <span className="font-medium">
                   -{pricing.currency === "USD" ? "$" : pricing.currency}
