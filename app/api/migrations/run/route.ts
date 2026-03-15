@@ -14,6 +14,7 @@
 
 import { NextResponse } from "next/server"
 import { query } from "@/lib/db/client"
+import { isIgnorableMigrationError, splitSqlStatements } from "@/lib/db/migration-utils"
 import { readFileSync } from "fs"
 import { join } from "path"
 
@@ -167,6 +168,27 @@ const MIGRATION_005 = readFileSync(
   'utf-8'
 )
 
+async function runMigrationStatements(
+  label: string,
+  sql: string,
+  results: string[],
+  successMessage: string
+) {
+  const statements = splitSqlStatements(sql)
+
+  for (const statement of statements) {
+    try {
+      await query(statement)
+    } catch (error: any) {
+      if (!isIgnorableMigrationError(error)) {
+        console.warn(`${label} statement warning:`, error.message)
+      }
+    }
+  }
+
+  results.push(successMessage)
+}
+
 export async function POST(request: Request) {
   try {
     // Security check - require secret key or allow in development
@@ -192,23 +214,12 @@ export async function POST(request: Request) {
     // Run Migration 001
     try {
       console.log('Running Migration 001: Initial Schema...')
-      // Split by semicolon and execute each statement
-      const statements = MIGRATION_001.split(';').filter(s => s.trim().length > 0)
-      
-      for (const statement of statements) {
-        const trimmed = statement.trim()
-        if (trimmed && !trimmed.startsWith('--')) {
-          try {
-            await query(trimmed)
-          } catch (error: any) {
-            // Ignore "already exists" errors
-            if (!error.message?.includes('already exists') && !error.message?.includes('duplicate')) {
-              console.warn('Migration 001 statement warning:', error.message)
-            }
-          }
-        }
-      }
-      results.push('✅ Migration 001 completed successfully')
+      await runMigrationStatements(
+        'Migration 001',
+        MIGRATION_001,
+        results,
+        '✅ Migration 001 completed successfully'
+      )
     } catch (error: any) {
       results.push(`❌ Migration 001 failed: ${error.message}`)
       throw error
@@ -217,22 +228,12 @@ export async function POST(request: Request) {
     // Run Migration 002
     try {
       console.log('Running Migration 002: Calendar Reservations...')
-      const statements = MIGRATION_002.split(';').filter(s => s.trim().length > 0)
-      
-      for (const statement of statements) {
-        const trimmed = statement.trim()
-        if (trimmed && !trimmed.startsWith('--')) {
-          try {
-            await query(trimmed)
-          } catch (error: any) {
-            // Ignore "already exists" errors
-            if (!error.message?.includes('already exists') && !error.message?.includes('duplicate')) {
-              console.warn('Migration 002 statement warning:', error.message)
-            }
-          }
-        }
-      }
-      results.push('✅ Migration 002 completed successfully')
+      await runMigrationStatements(
+        'Migration 002',
+        MIGRATION_002,
+        results,
+        '✅ Migration 002 completed successfully'
+      )
     } catch (error: any) {
       results.push(`❌ Migration 002 failed: ${error.message}`)
       throw error
@@ -249,30 +250,15 @@ export async function POST(request: Request) {
       } catch (error: any) {
         // If single query fails (e.g., some statements already exist), try statement by statement
         if (error.message?.includes('syntax error') || error.message?.includes('unexpected')) {
-          // Fallback: split by semicolon for compatibility
-          const statements = MIGRATION_003.split(';').filter(s => s.trim().length > 0 && !s.trim().startsWith('--'))
-          
-          for (const statement of statements) {
-            const trimmed = statement.trim()
-            if (trimmed) {
-              try {
-                await query(trimmed)
-              } catch (stmtError: any) {
-                // Ignore "already exists" errors
-                if (!stmtError.message?.includes('already exists') && 
-                    !stmtError.message?.includes('duplicate') &&
-                    !stmtError.message?.includes('already defined')) {
-                  console.warn('Migration 003 statement warning:', stmtError.message)
-                }
-              }
-            }
-          }
-          results.push('✅ Migration 003 completed successfully (with warnings)')
+          await runMigrationStatements(
+            'Migration 003',
+            MIGRATION_003,
+            results,
+            '✅ Migration 003 completed successfully (with warnings)'
+          )
         } else {
           // Ignore "already exists" errors for the whole migration
-          if (!error.message?.includes('already exists') && 
-              !error.message?.includes('duplicate') &&
-              !error.message?.includes('already defined')) {
+          if (!isIgnorableMigrationError(error)) {
             throw error
           }
           results.push('✅ Migration 003 completed successfully (some objects may already exist)')
@@ -286,16 +272,12 @@ export async function POST(request: Request) {
     // Run Migration 004
     try {
       console.log('Running Migration 004: Guest Chat...')
-      try {
-        await query(MIGRATION_004)
-        results.push('✅ Migration 004 completed successfully')
-      } catch (error: any) {
-        if (error.message?.includes('already exists') || error.message?.includes('duplicate')) {
-          results.push('✅ Migration 004 completed successfully (some objects may already exist)')
-        } else {
-          throw error
-        }
-      }
+      await runMigrationStatements(
+        'Migration 004',
+        MIGRATION_004,
+        results,
+        '✅ Migration 004 completed successfully'
+      )
     } catch (error: any) {
       results.push(`❌ Migration 004 failed: ${error.message}`)
       throw error
@@ -304,21 +286,12 @@ export async function POST(request: Request) {
     // Run Migration 005
     try {
       console.log('Running Migration 005: Coupon Codes...')
-      const statements = MIGRATION_005.split(';').filter(s => s.trim().length > 0)
-      
-      for (const statement of statements) {
-        const trimmed = statement.trim()
-        if (trimmed && !trimmed.startsWith('--')) {
-          try {
-            await query(trimmed)
-          } catch (error: any) {
-            if (!error.message?.includes('already exists') && !error.message?.includes('duplicate')) {
-              console.warn('Migration 005 statement warning:', error.message)
-            }
-          }
-        }
-      }
-      results.push('✅ Migration 005 completed successfully')
+      await runMigrationStatements(
+        'Migration 005',
+        MIGRATION_005,
+        results,
+        '✅ Migration 005 completed successfully'
+      )
     } catch (error: any) {
       results.push(`❌ Migration 005 failed: ${error.message}`)
       throw error
@@ -352,6 +325,15 @@ export async function POST(request: Request) {
       } else {
         const missing = expectedChatTables.filter(t => !tables.includes(t))
         results.push(`⚠️ Missing guest chat tables: ${missing.join(', ')}`)
+      }
+
+      const expectedCouponTables = ['coupon_codes', 'coupon_redemptions']
+      const couponTables = expectedCouponTables.filter(t => tables.includes(t))
+      if (couponTables.length === expectedCouponTables.length) {
+        results.push(`✅ All coupon tables verified: ${couponTables.join(', ')}`)
+      } else {
+        const missing = expectedCouponTables.filter(t => !tables.includes(t))
+        results.push(`⚠️ Missing coupon tables: ${missing.join(', ')}`)
       }
     } catch (error: any) {
       results.push(`⚠️ Could not verify tables: ${error.message}`)
