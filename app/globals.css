@@ -130,13 +130,11 @@
     color-scheme: light;
   }
   
+  /* Keep the native picker inside the field.
+     The previous absolute 100% overlay could capture clicks outside the input. */
   input[type="date"]::-webkit-calendar-picker-indicator {
     cursor: pointer;
-    opacity: 0;
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    right: 0;
+    opacity: 0.65;
   }
   
   .dark input[type="date"] {
