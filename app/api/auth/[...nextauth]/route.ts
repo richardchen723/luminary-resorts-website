@@ -14,6 +14,10 @@ const authBaseUrl =
   ""
 
 const isLocalAuthHost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(authBaseUrl)
+const isVercelHostedEnvironment =
+  process.env.VERCEL === "1" ||
+  process.env.VERCEL_ENV === "production" ||
+  process.env.VERCEL_ENV === "preview"
 
 export const authOptions = {
   providers: [
@@ -72,7 +76,10 @@ export const authOptions = {
     error: "/admin/login",
   },
   secret: process.env.NEXTAUTH_SECRET,
-  trustHost: process.env.AUTH_TRUST_HOST === "true" || isLocalAuthHost,
+  trustHost:
+    process.env.AUTH_TRUST_HOST === "true" ||
+    isLocalAuthHost ||
+    isVercelHostedEnvironment,
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth(authOptions)
