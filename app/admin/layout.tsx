@@ -10,6 +10,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/route"
 import { getAdminUserByEmail, canAccessAdmin } from "@/lib/auth"
 import Link from "next/link"
 import { signOut } from "@/app/api/auth/[...nextauth]/route"
+import { AdminChatAudioAlert } from "@/components/admin-chat/admin-chat-audio-alert"
 import { Button } from "@/components/ui/button"
 import { 
   LayoutDashboard, 
@@ -81,6 +82,7 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen bg-background">
+      <AdminChatAudioAlert />
       <div className="flex">
         {/* Sidebar */}
         <aside className="w-64 border-r border-border bg-card min-h-screen flex flex-col">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -125,7 +125,7 @@ export function AdminChatInbox({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function loadThreads(options?: { silent?: boolean }) {
+  const loadThreads = useCallback(async (options?: { silent?: boolean }) => {
     if (!options?.silent) {
       setIsLoadingThreads(true)
     }
@@ -163,9 +163,32 @@ export function AdminChatInbox({
         setIsLoadingThreads(false)
       }
     }
-  }
+  }, [filter, initialThreadId])
 
-  async function loadThread(threadId: string, options?: { silent?: boolean }) {
+  const markSelectedThreadRead = useCallback(async (threadId: string) => {
+    try {
+      const response = await fetch(`/api/admin/chat/threads/${threadId}/read`, {
+        method: "POST",
+      })
+      const data = await response.json().catch(() => null)
+
+      if (!response.ok || !data?.thread) {
+        return
+      }
+
+      const nextThread = data.thread as GuestChatThreadDetail
+      setSelectedThread((currentThread) =>
+        currentThread?.id === nextThread.id ? nextThread : currentThread
+      )
+      setThreads((currentThreads) =>
+        currentThreads.map((thread) => (thread.id === nextThread.id ? nextThread : thread))
+      )
+    } catch {
+      // Ignore read-state failures in the background.
+    }
+  }, [])
+
+  const loadThread = useCallback(async (threadId: string, options?: { silent?: boolean }) => {
     if (!options?.silent) {
       setIsLoadingThread(true)
     }
@@ -182,6 +205,9 @@ export function AdminChatInbox({
 
       const nextThread = data.thread as GuestChatThreadDetail
       setSelectedThread(nextThread)
+      if (nextThread.staffUnreadCount > 0) {
+        void markSelectedThreadRead(threadId)
+      }
       setError(null)
     } catch (loadError: any) {
       setError(loadError.message || "Failed to load chat thread")
@@ -190,21 +216,11 @@ export function AdminChatInbox({
         setIsLoadingThread(false)
       }
     }
-  }
-
-  async function markSelectedThreadRead(threadId: string) {
-    try {
-      await fetch(`/api/admin/chat/threads/${threadId}/read`, {
-        method: "POST",
-      })
-    } catch {
-      // Ignore read-state failures in the background.
-    }
-  }
+  }, [markSelectedThreadRead])
 
   useEffect(() => {
     void loadThreads()
-  }, [filter])
+  }, [loadThreads])
 
   useEffect(() => {
     if (!selectedThreadId) {
@@ -216,12 +232,11 @@ export function AdminChatInbox({
 
     setReplyBody("")
     void loadThread(selectedThreadId)
-    void markSelectedThreadRead(selectedThreadId)
-  }, [selectedThreadId])
+  }, [loadThread, selectedThreadId])
 
   useEffect(() => {
     setConversionDraft(buildConversionDraft(selectedThread))
-  }, [selectedThread?.id])
+  }, [selectedThread])
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -232,7 +247,7 @@ export function AdminChatInbox({
     }, 5000)
 
     return () => window.clearInterval(intervalId)
-  }, [filter, selectedThreadId])
+  }, [loadThread, loadThreads, selectedThreadId])
 
   async function refreshAfterMutation(nextThread?: GuestChatThreadDetail | null) {
     if (nextThread) {

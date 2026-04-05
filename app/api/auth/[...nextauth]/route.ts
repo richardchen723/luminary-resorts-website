@@ -7,6 +7,14 @@ import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
 import { upsertAdminUser, getAdminUserByEmail } from "@/lib/auth"
 
+const authBaseUrl =
+  process.env.NEXTAUTH_URL ||
+  process.env.AUTH_URL ||
+  process.env.NEXT_PUBLIC_BASE_URL ||
+  ""
+
+const isLocalAuthHost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(authBaseUrl)
+
 export const authOptions = {
   providers: [
     Google({
@@ -64,6 +72,7 @@ export const authOptions = {
     error: "/admin/login",
   },
   secret: process.env.NEXTAUTH_SECRET,
+  trustHost: process.env.AUTH_TRUST_HOST === "true" || isLocalAuthHost,
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth(authOptions)
