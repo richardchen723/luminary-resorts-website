@@ -2,7 +2,7 @@
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CheckCircle, Calendar, Users, DollarSign, Home, Mail } from "lucide-react"
+import { CheckCircle, Calendar, Gift, Users, DollarSign, Home, Mail } from "lucide-react"
 import Link from "next/link"
 import { differenceInCalendarDays, format, parseISO } from "date-fns"
 
@@ -15,6 +15,7 @@ interface StepConfirmationProps {
   totalPrice: number
   currency: string
   guestEmail: string
+  addOnPackageName?: string | null
 }
 
 export function StepConfirmation({
@@ -26,6 +27,7 @@ export function StepConfirmation({
   totalPrice,
   currency,
   guestEmail,
+  addOnPackageName,
 }: StepConfirmationProps) {
   const checkInDate = parseISO(checkIn)
   const checkOutDate = parseISO(checkOut)
@@ -78,6 +80,16 @@ export function StepConfirmation({
                 <div className="font-semibold">{guests} {guests === 1 ? "guest" : "guests"}</div>
               </div>
             </div>
+
+            {addOnPackageName && (
+              <div className="flex items-center gap-3">
+                <Gift className="w-5 h-5 text-primary" />
+                <div>
+                  <div className="text-sm text-muted-foreground">Package</div>
+                  <div className="font-semibold">{addOnPackageName}</div>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center gap-3">
               <DollarSign className="w-5 h-5 text-primary" />

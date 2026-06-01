@@ -11,7 +11,11 @@ import { checkCabinAvailability } from './availability'
 import { getSlugByListingId } from './listing-map'
 import type { Booking, ReservationStatus } from './db/schema'
 import { PaymentStatus } from './db/schema'
-import type { HostawayBookingRequest } from './types/hostaway'
+import type { HostawayBookingRequest } from '@/types/hostaway'
+import {
+  formatBookingAddOnPackageSelection,
+  type BookingAddOnPackageSelection,
+} from './booking-add-ons'
 
 /**
  * Normalize phone number for Hostaway API
@@ -74,11 +78,13 @@ export async function createBookingOperation(params: {
     cleaningFee: number
     tax: number
     channelFee: number
+    packageFee?: number
   }
+  addOnPackage?: BookingAddOnPackageSelection | null
   paymentStatus?: PaymentStatus // Payment status: 'pending' for authorized, 'succeeded' for captured
   stripeMetadata?: Record<string, any>
 }): Promise<{ booking: Booking; hostawayReservationId: number }> {
-  const { paymentIntentId, paymentMethodId, listingId, checkIn, checkOut, guests, adults, pets = 0, infants = 0, guestInfo, pricing, paymentStatus = PaymentStatus.PENDING, stripeMetadata } = params
+  const { paymentIntentId, listingId, checkIn, checkOut, guests, adults, pets = 0, infants = 0, guestInfo, pricing, addOnPackage = null, paymentStatus = PaymentStatus.PENDING, stripeMetadata } = params
   
   // Get slug and listingMapId
   const slug = getSlugByListingId(listingId)
@@ -98,6 +104,7 @@ export async function createBookingOperation(params: {
   // Create Hostaway reservation
   let hostawayReservation: any
   try {
+    const addOnPackageNote = `Add-on package: ${formatBookingAddOnPackageSelection(addOnPackage)}`
     const hostawayPayload: HostawayBookingRequest = {
       channelId: 2000,
       listingMapId,
@@ -123,7 +130,9 @@ export async function createBookingOperation(params: {
       isPaid: 1,
       isManuallyChecked: 0,
       isInitial: 0,
-      comment: `Stripe Payment Intent: ${paymentIntentId}`,
+      comment: `Stripe Payment Intent: ${paymentIntentId}\n${addOnPackageNote}`,
+      hostNote: addOnPackageNote,
+      guestNote: addOnPackage ? addOnPackageNote : null,
     }
     
     hostawayReservation = await createHostawayBooking(hostawayPayload)
@@ -171,13 +180,16 @@ export async function createBookingOperation(params: {
       reservation_status: 'confirmed' as ReservationStatus,
       stripe_metadata: stripeMetadata || null,
       hostaway_metadata: hostawayReservation || null,
-      notes: null,
+      notes: addOnPackage
+        ? `Add-on package: ${formatBookingAddOnPackageSelection(addOnPackage)}`
+        : null,
     })
     
       // Log creation
       await logBookingModification(booking.id, 'created', {
         hostawayReservationId,
         paymentIntentId,
+        addOnPackage,
       }, 'system')
     } catch (error: any) {
       console.error('Failed to store booking in database:', error)
@@ -232,7 +244,9 @@ export async function createBookingOperation(params: {
       reservation_status: 'confirmed' as ReservationStatus,
       stripe_metadata: stripeMetadata || null,
       hostaway_metadata: null,
-      notes: null,
+      notes: addOnPackage
+        ? `Add-on package: ${formatBookingAddOnPackageSelection(addOnPackage)}`
+        : null,
       created_at: new Date(),
       updated_at: new Date(),
       cancelled_at: null,

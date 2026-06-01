@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { Card } from "@/components/ui/card"
-import { Calendar, Users, Home } from "lucide-react"
+import { Calendar, Gift, Users, Home } from "lucide-react"
 import type { Cabin } from "@/lib/cabins"
 import { differenceInCalendarDays, format, parseISO } from "date-fns"
 import { CouponCodeCard } from "@/components/booking-steps/coupon-code-card"
@@ -22,6 +22,7 @@ interface StepReviewProps {
     tax: number
     channelFee: number
     petFee: number
+    packageFee?: number
     total: number
     currency: string
     discount?: {
@@ -34,6 +35,7 @@ interface StepReviewProps {
     }
     discounted_subtotal?: number
   } | null
+  selectedPackageName?: string | null
   coupon: {
     value: string
     appliedCode: string | null
@@ -56,6 +58,7 @@ export function StepReview({
   pets = 0,
   infants = 0,
   pricing,
+  selectedPackageName,
   coupon,
   onCouponChange,
   onCouponApply,
@@ -112,6 +115,12 @@ export function StepReview({
                 <Home className="w-4 h-4" />
                 <span>{nights} {nights === 1 ? "night" : "nights"}</span>
               </div>
+              {selectedPackageName && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Gift className="w-4 h-4" />
+                  <span>{selectedPackageName}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -200,6 +209,18 @@ export function StepReview({
                 <span className="font-medium">
                   {pricing.currency === "USD" ? "$" : pricing.currency}
                   {(pricing.petFee || 0).toFixed(2)}
+                </span>
+              </div>
+            )}
+
+            {(pricing.packageFee || 0) > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {selectedPackageName || "Celebration Package"}
+                </span>
+                <span className="font-medium">
+                  {pricing.currency === "USD" ? "$" : pricing.currency}
+                  {(pricing.packageFee || 0).toFixed(2)}
                 </span>
               </div>
             )}

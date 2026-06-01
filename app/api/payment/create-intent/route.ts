@@ -12,6 +12,7 @@ import { getListingIdBySlug } from '@/lib/listing-map'
 import { roundToTwoDecimals } from '@/lib/utils'
 import { buildStripeFeeMetadata } from '@/lib/stripe-fee-metadata'
 import { validateCouponPricing } from '@/lib/coupons'
+import { getBookingAddOnPackage } from '@/lib/booking-add-ons'
 
 interface CreateIntentRequest {
   slug: string
@@ -19,6 +20,7 @@ interface CreateIntentRequest {
   checkOut: string
   guests: number
   couponCode?: string | null
+  addOnPackageId?: string | null
   // Exact pricing from review page - MUST be provided
   pricing?: {
     nightlyRate: number
@@ -29,6 +31,7 @@ interface CreateIntentRequest {
     tax: number
     channelFee: number
     petFee?: number
+    packageFee?: number
     total: number
     currency: string
     discount?: {
@@ -45,12 +48,22 @@ interface CreateIntentRequest {
 export async function POST(request: Request) {
   try {
     const body: CreateIntentRequest = await request.json()
-    const { slug, checkIn, checkOut, guests, couponCode, pricing } = body
+    const { slug, checkIn, checkOut, guests, couponCode, addOnPackageId, pricing } = body
 
     // Validate required fields
     if (!slug || !checkIn || !checkOut || !guests) {
       return NextResponse.json(
         { error: 'Missing required fields: slug, checkIn, checkOut, guests' },
+        { status: 400 }
+      )
+    }
+
+    const addOnPackage = addOnPackageId
+      ? getBookingAddOnPackage(addOnPackageId)
+      : null
+    if (addOnPackageId && !addOnPackage) {
+      return NextResponse.json(
+        { error: 'Invalid add-on package selected' },
         { status: 400 }
       )
     }
@@ -70,6 +83,15 @@ export async function POST(request: Request) {
 
     let feeMetadata: Record<string, string> = {}
     if (pricing && pricing.total && pricing.total > 0) {
+      const expectedPackageFee = addOnPackage?.price || 0
+      const packageFee = roundToTwoDecimals(pricing.packageFee || 0)
+      if (Math.abs(packageFee - expectedPackageFee) > 0.01) {
+        return NextResponse.json(
+          { error: 'Package pricing no longer matches the selected add-on. Please review your package selection again.' },
+          { status: 400 }
+        )
+      }
+
       if (couponCode) {
         try {
           await validateCouponPricing(couponCode, {
@@ -79,6 +101,7 @@ export async function POST(request: Request) {
             tax: pricing.tax,
             channelFee: pricing.channelFee,
             petFee: pricing.petFee,
+            packageFee,
             total: pricing.total,
             discount: pricing.discount ? {
               type: pricing.discount.type,
@@ -116,6 +139,9 @@ export async function POST(request: Request) {
         checkOut,
         guests: guests.toString(),
         couponCode: couponCode || "",
+        addOnPackageId: addOnPackage?.id || "",
+        addOnPackageName: addOnPackage?.name || "",
+        addOnPackageFee: addOnPackage ? addOnPackage.price.toString() : "0",
       },
       description: `Payment method setup for booking ${slug} from ${checkIn} to ${checkOut}`,
     })
@@ -135,6 +161,9 @@ export async function POST(request: Request) {
         couponCode: couponCode || "",
         discountSource: pricing?.discount?.source || "",
         discountCode: pricing?.discount?.code || "",
+        addOnPackageId: addOnPackage?.id || "",
+        addOnPackageName: addOnPackage?.name || "",
+        addOnPackageFee: addOnPackage ? addOnPackage.price.toString() : "0",
         ...feeMetadata,
       },
       description: `Booking for ${slug} from ${checkIn} to ${checkOut}`,

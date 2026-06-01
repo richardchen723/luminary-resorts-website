@@ -189,6 +189,7 @@ export interface HostawayBookingRequest {
   channelId: number // Channel ID (2000 for direct bookings)
   totalPrice?: number
   currency?: string
+  isPaid?: number
   isManuallyChecked?: number
   isInitial?: number
   // Optional fields from sample

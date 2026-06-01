@@ -16,6 +16,7 @@ import { getReferralCodeFromRequest } from "@/lib/discounts"
 import { createBookingAttribution } from "@/lib/attribution"
 import { buildStripeFeeMetadata } from "@/lib/stripe-fee-metadata"
 import { PaymentStatus } from "@/lib/db/schema"
+import { getBookingAddOnPackageSelection } from "@/lib/booking-add-ons"
 import {
   releaseCouponRedemption,
   redeemCouponRedemption,
@@ -31,6 +32,7 @@ interface ConfirmPaymentRequest {
   checkOut: string
   guests: number
   couponCode?: string | null
+  addOnPackageId?: string | null
   pets?: number
   infants?: number
   // Exact pricing from review page - MUST be provided
@@ -43,6 +45,7 @@ interface ConfirmPaymentRequest {
     tax: number
     channelFee: number
     petFee: number
+    packageFee?: number
     total: number
     currency: string
     discount?: {
@@ -78,6 +81,7 @@ interface FinalPricing {
   tax: number
   channelFee: number
   petFee: number
+  packageFee: number
   discounted_subtotal?: number
       discount?: {
         type: "percent" | "fixed"
@@ -92,12 +96,20 @@ interface FinalPricing {
 export async function POST(request: Request) {
   try {
     const body: ConfirmPaymentRequest = await request.json()
-    const { paymentIntentId, paymentMethodId, slug, checkIn, checkOut, guests, couponCode, pets = 0, infants = 0, pricing, guestInfo } = body
+    const { paymentIntentId, paymentMethodId, slug, checkIn, checkOut, guests, couponCode, addOnPackageId, pets = 0, infants = 0, pricing, guestInfo } = body
 
     // Validate required fields
     if (!paymentIntentId || !slug || !checkIn || !checkOut || !guests || !guestInfo) {
       return NextResponse.json(
         { error: 'Missing required fields' },
+        { status: 400 }
+      )
+    }
+
+    const addOnPackage = getBookingAddOnPackageSelection(addOnPackageId)
+    if (addOnPackageId && !addOnPackage) {
+      return NextResponse.json(
+        { error: "Invalid add-on package selected" },
         { status: 400 }
       )
     }
@@ -142,6 +154,15 @@ export async function POST(request: Request) {
     // Use exact pricing from review page - this is the source of truth
     let finalPricing: FinalPricing
     if (pricing && pricing.total && pricing.total > 0) {
+      const expectedPackageFee = addOnPackage?.price || 0
+      const packageFee = roundToTwoDecimals(pricing.packageFee || 0)
+      if (Math.abs(packageFee - expectedPackageFee) > 0.01) {
+        return NextResponse.json(
+          { error: "Package pricing no longer matches the selected add-on. Please review your package selection again." },
+          { status: 400 }
+        )
+      }
+
       // Validate that pricing total matches payment intent amount (within 1 cent tolerance)
       const paymentAmountInDollars = paymentIntent.amount / 100
       const pricingTotalRounded = roundToTwoDecimals(pricing.total)
@@ -169,6 +190,7 @@ export async function POST(request: Request) {
         tax: roundToTwoDecimals(pricing.tax),
         channelFee: roundToTwoDecimals(pricing.channelFee),
         petFee: roundToTwoDecimals(pricing.petFee || 0),
+        packageFee,
         // Include discount information if present
         discount: pricing.discount ? {
           type: pricing.discount.type,
@@ -201,6 +223,7 @@ export async function POST(request: Request) {
         tax: estimatedTax,
         channelFee: estimatedChannelFee,
         petFee: 0,
+        packageFee: addOnPackage?.price || 0,
       }
       
       console.warn('Pricing not provided in request, using estimated breakdown from payment intent amount')
@@ -213,6 +236,7 @@ export async function POST(request: Request) {
       tax: finalPricing.tax,
       channelFee: finalPricing.channelFee,
       petFee: finalPricing.petFee,
+      packageFee: finalPricing.packageFee,
       total: finalPricing.total,
       nights: finalPricing.nights,
       discount: finalPricing.discount
@@ -233,6 +257,7 @@ export async function POST(request: Request) {
           tax: pricing.tax,
           channelFee: pricing.channelFee,
           petFee: pricing.petFee,
+          packageFee: finalPricing.packageFee,
           total: pricing.total,
           discount: pricing.discount ? {
             type: pricing.discount.type,
@@ -254,6 +279,9 @@ export async function POST(request: Request) {
         ...stripeFeeMetadata,
         couponCode: validatedCoupon?.coupon.code || "",
         couponId: validatedCoupon?.coupon.id || "",
+        addOnPackageId: addOnPackage?.id || "",
+        addOnPackageName: addOnPackage?.name || "",
+        addOnPackageFee: addOnPackage ? addOnPackage.price.toString() : "0",
       })
     } catch (metadataError: any) {
       // Preserve booking flow even if metadata sync fails
@@ -300,6 +328,7 @@ export async function POST(request: Request) {
         infants,
         guestInfo,
         pricing: finalPricing,
+        addOnPackage,
         paymentStatus, // Pass the payment status
         paymentMethodId, // Store saved payment method ID for future charges
         stripeMetadata: {
@@ -317,9 +346,11 @@ export async function POST(request: Request) {
             cleaningFee: finalPricing.cleaningFee,
             tax: finalPricing.tax,
             petFee: finalPricing.petFee || 0,
+            packageFee: finalPricing.packageFee || 0,
             total: finalPricing.total,
             nights: finalPricing.nights,
           },
+          addOnPackage: addOnPackage || null,
           coupon: validatedCoupon ? {
             id: validatedCoupon.coupon.id,
             code: validatedCoupon.coupon.code,
@@ -377,20 +408,29 @@ export async function POST(request: Request) {
         (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)
       )
       
-      // Post special requests to Hostaway conversation if provided
-      if (guestInfo.specialRequests && guestInfo.specialRequests.trim()) {
+      // Post guest-selected package and special requests to Hostaway conversation if provided
+      const hostawayBookingMessages = [
+        addOnPackage
+          ? `Add-on package selected: ${addOnPackage.name} ($${addOnPackage.price})`
+          : null,
+        guestInfo.specialRequests && guestInfo.specialRequests.trim()
+          ? `Special Request: ${guestInfo.specialRequests.trim()}`
+          : null,
+      ].filter(Boolean) as string[]
+
+      if (hostawayBookingMessages.length > 0) {
         try {
           if (hostawayReservationId > 0) {
             await addMessageToConversation(
               hostawayReservationId,
-              `Special Request: ${guestInfo.specialRequests.trim()}`,
+              hostawayBookingMessages.join("\n\n"),
               1 // isIncoming: 1 = from guest
             )
-            console.log(`✅ Special request posted to Hostaway conversation for reservation ${hostawayReservationId}`)
+            console.log(`✅ Booking message posted to Hostaway conversation for reservation ${hostawayReservationId}`)
           }
         } catch (messageError: any) {
           // Log error but don't fail the booking
-          console.warn(`⚠️  Failed to post special request to Hostaway conversation: ${messageError.message}`)
+          console.warn(`⚠️  Failed to post booking message to Hostaway conversation: ${messageError.message}`)
         }
       }
 
@@ -405,6 +445,7 @@ export async function POST(request: Request) {
         nights,
         guests,
         pricing: finalPricing,
+        addOnPackage,
       }).catch((emailError) => {
         // Log email error but don't fail the booking
         console.error("Failed to send confirmation email:", emailError)

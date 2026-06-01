@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useSearchParams, useParams, useRouter } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Loader2, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react"
 import { StepReview } from "@/components/booking-steps/step-review"
+import { StepPackage } from "@/components/booking-steps/step-package"
 import { StepGuestInfo } from "@/components/booking-steps/step-guest-info"
 import { StepPayment } from "@/components/booking-steps/step-payment"
 import type { HostawayGuestInfo, HostawayCalendarEntry } from "@/types/hostaway"
@@ -17,7 +18,13 @@ import type { Cabin } from "@/lib/cabins"
 import { eachDayOfInterval, parseISO, format, differenceInCalendarDays } from "date-fns"
 import { roundToTwoDecimals } from "@/lib/utils"
 import { trackReservationConfirmed } from "@/lib/analytics"
-type BookingStep = "review" | "guest" | "payment" | "confirmation"
+import {
+  getBookingAddOnPackage,
+  getBookingAddOnPackageFee,
+  type BookingAddOnPackageId,
+} from "@/lib/booking-add-ons"
+
+type BookingStep = "review" | "package" | "guest" | "payment" | "confirmation"
 
 type PricingDiscount = {
   type: "percent" | "fixed"
@@ -36,6 +43,7 @@ type PricingState = {
   tax: number
   channelFee: number
   petFee: number
+  packageFee?: number
   total: number
   currency: string
   discount?: PricingDiscount
@@ -78,7 +86,8 @@ function applyDiscountToPricing(
         currentPricing.cleaningFee +
         nextTax +
         nextChannelFee +
-        currentPricing.petFee
+        currentPricing.petFee +
+        (currentPricing.packageFee || 0)
     ),
     discount: discount
       ? {
@@ -91,6 +100,20 @@ function applyDiscountToPricing(
         }
       : undefined,
     discounted_subtotal: discount ? discount.discounted_subtotal : undefined,
+  }
+}
+
+function applyPackageToPricing(
+  currentPricing: PricingState,
+  packageId: BookingAddOnPackageId | null
+): PricingState {
+  const currentPackageFee = currentPricing.packageFee || 0
+  const packageFee = getBookingAddOnPackageFee(packageId)
+
+  return {
+    ...currentPricing,
+    packageFee,
+    total: roundToTwoDecimals(currentPricing.total - currentPackageFee + packageFee),
   }
 }
 
@@ -111,6 +134,7 @@ export default function BookingPage() {
   const [currentStep, setCurrentStep] = useState<BookingStep>("review")
   const [calendarData, setCalendarData] = useState<Record<string, HostawayCalendarEntry>>({})
   const [pricing, setPricing] = useState<PricingState | null>(null)
+  const [selectedPackageId, setSelectedPackageId] = useState<BookingAddOnPackageId | null>(null)
   const [guestInfo, setGuestInfo] = useState<Partial<HostawayGuestInfo>>({})
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
@@ -128,6 +152,14 @@ export default function BookingPage() {
     confirmationCode: string
     bookingId: string
   } | null>(null)
+  const selectedPackage = useMemo(
+    () => getBookingAddOnPackage(selectedPackageId),
+    [selectedPackageId]
+  )
+  const checkoutPricing = useMemo(
+    () => (pricing ? applyPackageToPricing(pricing, selectedPackageId) : null),
+    [pricing, selectedPackageId]
+  )
 
   useEffect(() => {
     async function loadCabin() {
@@ -602,6 +634,8 @@ export default function BookingPage() {
 
   const handleNext = () => {
     if (currentStep === "review") {
+      setCurrentStep("package")
+    } else if (currentStep === "package") {
       setCurrentStep("guest")
     } else if (currentStep === "guest") {
       // Validate guest info
@@ -622,15 +656,17 @@ export default function BookingPage() {
   }
 
   const handleBack = () => {
-    if (currentStep === "guest") {
+    if (currentStep === "package") {
       setCurrentStep("review")
+    } else if (currentStep === "guest") {
+      setCurrentStep("package")
     } else if (currentStep === "payment") {
       setCurrentStep("guest")
     }
   }
 
   const createPaymentIntent = useCallback(async () => {
-    if (!cabin || !checkIn || !checkOut || !pricing) return
+    if (!cabin || !checkIn || !checkOut || !checkoutPricing) return
 
     setIsSubmitting(true)
     setError(null)
@@ -648,18 +684,20 @@ export default function BookingPage() {
           guests,
           // Send exact pricing from review page - this ensures payment uses same price
           pricing: {
-            nightlyRate: pricing.nightlyRate,
-            nights: pricing.nights,
-            subtotal: pricing.subtotal,
-            cleaningFee: pricing.cleaningFee,
-            tax: pricing.tax,
-            channelFee: pricing.channelFee,
-            petFee: pricing.petFee,
-            total: pricing.total,
-            currency: pricing.currency,
-            discount: pricing.discount,
-            discounted_subtotal: pricing.discounted_subtotal,
+            nightlyRate: checkoutPricing.nightlyRate,
+            nights: checkoutPricing.nights,
+            subtotal: checkoutPricing.subtotal,
+            cleaningFee: checkoutPricing.cleaningFee,
+            tax: checkoutPricing.tax,
+            channelFee: checkoutPricing.channelFee,
+            petFee: checkoutPricing.petFee,
+            packageFee: checkoutPricing.packageFee || 0,
+            total: checkoutPricing.total,
+            currency: checkoutPricing.currency,
+            discount: checkoutPricing.discount,
+            discounted_subtotal: checkoutPricing.discounted_subtotal,
           },
+          addOnPackageId: selectedPackageId,
           couponCode: appliedCouponCode,
         }),
       })
@@ -679,14 +717,20 @@ export default function BookingPage() {
     } finally {
       setIsSubmitting(false)
     }
-  }, [appliedCouponCode, cabin, checkIn, checkOut, guests, pricing, slug])
+  }, [appliedCouponCode, cabin, checkIn, checkOut, checkoutPricing, guests, selectedPackageId, slug])
 
   // Create payment intent when moving to payment step
   useEffect(() => {
-    if (currentStep === "payment" && !clientSecret && pricing && cabin) {
+    if (currentStep === "payment" && !clientSecret && checkoutPricing && cabin) {
       createPaymentIntent()
     }
-  }, [currentStep, clientSecret, pricing, cabin, createPaymentIntent])
+  }, [currentStep, clientSecret, checkoutPricing, cabin, createPaymentIntent])
+
+  useEffect(() => {
+    setPaymentIntentId(null)
+    setClientSecret(null)
+    setSetupIntentClientSecret(null)
+  }, [checkoutPricing?.total, selectedPackageId])
 
   const handlePaymentSuccess = async (paymentIntentId: string, paymentMethodId?: string) => {
     if (!cabin || !checkIn || !checkOut || !guestInfo.firstName || !guestInfo.lastName || !guestInfo.email || !guestInfo.phone) {
@@ -694,7 +738,7 @@ export default function BookingPage() {
       return
     }
 
-    if (!pricing) {
+    if (!checkoutPricing) {
       setError("Pricing information is missing")
       return
     }
@@ -720,18 +764,20 @@ export default function BookingPage() {
           infants,
           // Send exact pricing from review page - this ensures booking uses same price
           pricing: {
-            nightlyRate: pricing.nightlyRate,
-            nights: pricing.nights,
-            subtotal: pricing.subtotal,
-            discounted_subtotal: pricing.discounted_subtotal,
-            cleaningFee: pricing.cleaningFee,
-            tax: pricing.tax,
-            channelFee: pricing.channelFee,
-            petFee: pricing.petFee,
-            total: pricing.total,
-            currency: pricing.currency,
-            discount: pricing.discount,
+            nightlyRate: checkoutPricing.nightlyRate,
+            nights: checkoutPricing.nights,
+            subtotal: checkoutPricing.subtotal,
+            discounted_subtotal: checkoutPricing.discounted_subtotal,
+            cleaningFee: checkoutPricing.cleaningFee,
+            tax: checkoutPricing.tax,
+            channelFee: checkoutPricing.channelFee,
+            petFee: checkoutPricing.petFee,
+            packageFee: checkoutPricing.packageFee || 0,
+            total: checkoutPricing.total,
+            currency: checkoutPricing.currency,
+            discount: checkoutPricing.discount,
           },
+          addOnPackageId: selectedPackageId,
           guestInfo: {
             firstName: guestInfo.firstName,
             lastName: guestInfo.lastName,
@@ -787,6 +833,7 @@ export default function BookingPage() {
 
   const steps: { id: BookingStep; label: string }[] = [
     { id: "review", label: "Review" },
+    { id: "package", label: "Package" },
     { id: "guest", label: "Guest Info" },
     { id: "payment", label: "Payment" },
     { id: "confirmation", label: "Confirmation" },
@@ -854,7 +901,8 @@ export default function BookingPage() {
               guests={guests}
               pets={pets}
               infants={infants}
-              pricing={pricing}
+              pricing={checkoutPricing}
+              selectedPackageName={selectedPackage?.name || null}
               coupon={{
                 value: couponInput,
                 appliedCode: appliedCouponCode,
@@ -864,6 +912,15 @@ export default function BookingPage() {
               onCouponChange={(value) => setCouponInput(formatCouponInput(value))}
               onCouponApply={handleApplyCoupon}
               onCouponRemove={handleRemoveCoupon}
+            />
+          )}
+
+          {currentStep === "package" && (
+            <StepPackage
+              selectedPackageId={selectedPackageId}
+              onSelect={setSelectedPackageId}
+              totalPrice={checkoutPricing?.total}
+              currency={checkoutPricing?.currency || "USD"}
             />
           )}
 
@@ -878,24 +935,25 @@ export default function BookingPage() {
               setupIntentClientSecret={setupIntentClientSecret}
               onPaymentSuccess={handlePaymentSuccess}
               isLoading={isSubmitting}
-              pricing={pricing ? {
-                total: pricing.total,
-                currency: pricing.currency,
+              pricing={checkoutPricing ? {
+                total: checkoutPricing.total,
+                currency: checkoutPricing.currency,
               } : null}
               checkIn={checkIn || undefined}
             />
           )}
 
-          {currentStep === "confirmation" && bookingConfirmation && pricing && (
+          {currentStep === "confirmation" && bookingConfirmation && checkoutPricing && (
             <StepConfirmation
               confirmationCode={bookingConfirmation.confirmationCode}
               cabinName={cabin.name}
               checkIn={checkIn}
               checkOut={checkOut}
               guests={guests}
-              totalPrice={pricing.total}
-              currency={pricing.currency}
+              totalPrice={checkoutPricing.total}
+              currency={checkoutPricing.currency}
               guestEmail={guestInfo.email || ""}
+              addOnPackageName={selectedPackage?.name || null}
             />
           )}
 

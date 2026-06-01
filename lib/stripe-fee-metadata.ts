@@ -11,6 +11,7 @@ export interface StripeFeeMetadataPricing {
   tax: number
   channelFee: number
   petFee?: number
+  packageFee?: number
   total: number
   nights?: number
   discount?: PricingDiscount
@@ -24,6 +25,7 @@ export interface NormalizedStripeFeeBreakdown {
   tax: number
   bookingFee: number
   petFee: number
+  packageFee: number
   discountAmount: number
   total: number
   nights?: number
@@ -62,6 +64,7 @@ export function normalizeStripeFeeBreakdown(
     tax: normalizeAmount(pricing.tax),
     bookingFee: normalizeAmount(pricing.channelFee),
     petFee: normalizeAmount(pricing.petFee ?? 0),
+    packageFee: normalizeAmount(pricing.packageFee ?? 0),
     discountAmount,
     total: normalizeAmount(pricing.total),
     nights,
@@ -82,6 +85,7 @@ export function buildStripeFeeMetadata(
     cleaning_fee_cents: String(toCents(normalized.cleaningFee)),
     tax_cents: String(toCents(normalized.tax)),
     pet_fee_cents: String(toCents(normalized.petFee)),
+    package_fee_cents: String(toCents(normalized.packageFee)),
     discount_amount_cents: String(toCents(normalized.discountAmount)),
     total_cents: String(toCents(normalized.total)),
   }

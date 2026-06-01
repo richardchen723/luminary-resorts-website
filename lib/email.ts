@@ -4,6 +4,11 @@
 
 import nodemailer from "nodemailer"
 import { format } from "date-fns"
+import { formatCouponOfferLabel, getCouponEmailSubject } from "@/lib/coupon-email"
+import {
+  formatBookingAddOnPackageSelection,
+  type BookingAddOnPackageSelection,
+} from "@/lib/booking-add-ons"
 
 interface BookingConfirmationEmailData {
   guestName: string
@@ -20,6 +25,7 @@ interface BookingConfirmationEmailData {
     cleaningFee: number
     tax: number
     channelFee: number
+    packageFee?: number
     total: number
     currency: string
     discount?: {
@@ -29,11 +35,13 @@ interface BookingConfirmationEmailData {
     }
     discounted_subtotal?: number
   }
+  addOnPackage?: BookingAddOnPackageSelection | null
 }
 
 interface CouponEmailData {
   guestFirstName: string
   guestEmail: string
+  subject?: string | null
   couponCode: string
   couponName: string
   description?: string | null
@@ -79,11 +87,22 @@ function getCabinAddress(cabinName: string): string {
   return "50 Snowhill Rd, Coldspring TX, 77331"
 }
 
+function getBookingTeamRecipients(): string[] {
+  const configuredRecipients = process.env.BOOKING_TEAM_EMAILS
+    ?.split(",")
+    .map((email) => email.trim())
+    .filter(Boolean)
+
+  return configuredRecipients && configuredRecipients.length > 0
+    ? configuredRecipients
+    : ["lydia@luminaryresorts.com", "usman@luminaryresorts.com"]
+}
+
 /**
  * Generate HTML email template for booking confirmation
  */
 function generateBookingConfirmationEmail(data: BookingConfirmationEmailData): string {
-  const { guestName, confirmationCode, cabinName, checkIn, checkOut, nights, guests, pricing } = data
+  const { guestName, confirmationCode, cabinName, checkIn, checkOut, nights, guests, pricing, addOnPackage } = data
   
   const checkInDate = new Date(checkIn)
   const checkOutDate = new Date(checkOut)
@@ -92,6 +111,7 @@ function generateBookingConfirmationEmail(data: BookingConfirmationEmailData): s
   const checkInTime = "4:00 PM"
   const checkOutTime = "11:00 AM"
   const cabinAddress = getCabinAddress(cabinName)
+  const packageLabel = formatBookingAddOnPackageSelection(addOnPackage)
 
   return `
 <!DOCTYPE html>
@@ -391,6 +411,10 @@ function generateBookingConfirmationEmail(data: BookingConfirmationEmailData): s
           <span class="info-label">Guests</span>
           <span class="info-value">${guests} ${guests === 1 ? 'guest' : 'guests'}</span>
         </div>
+        <div class="info-row">
+          <span class="info-label">Package</span>
+          <span class="info-value">${packageLabel}</span>
+        </div>
       </div>
       
       <!-- Pricing -->
@@ -427,6 +451,12 @@ function generateBookingConfirmationEmail(data: BookingConfirmationEmailData): s
             <span class="info-label">Guest Channel Fee</span>
             <span class="info-value">${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.channelFee.toFixed(2)}</span>
           </div>
+          ${(pricing.packageFee || 0) > 0 ? `
+          <div class="pricing-row">
+            <span class="info-label">${addOnPackage?.name || 'Celebration Package'}</span>
+            <span class="info-value">${pricing.currency === 'USD' ? '$' : pricing.currency}${(pricing.packageFee || 0).toFixed(2)}</span>
+          </div>
+          ` : ''}
           <div class="pricing-total">
             <span>Total</span>
             <span>${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.total.toFixed(2)}</span>
@@ -476,13 +506,14 @@ function generateBookingConfirmationEmail(data: BookingConfirmationEmailData): s
  * Generate plain text version of booking confirmation email
  */
 function generateBookingConfirmationEmailText(data: BookingConfirmationEmailData): string {
-  const { guestName, confirmationCode, cabinName, checkIn, checkOut, nights, guests, pricing } = data
+  const { guestName, confirmationCode, cabinName, checkIn, checkOut, nights, guests, pricing, addOnPackage } = data
   
   const checkInDate = new Date(checkIn)
   const checkOutDate = new Date(checkOut)
   const formattedCheckIn = format(checkInDate, "EEEE, MMMM d, yyyy")
   const formattedCheckOut = format(checkOutDate, "EEEE, MMMM d, yyyy")
   const cabinAddress = getCabinAddress(cabinName)
+  const packageLabel = formatBookingAddOnPackageSelection(addOnPackage)
 
   return `
 LUMINARY RESORTS
@@ -503,13 +534,14 @@ Check-in: ${formattedCheckIn} at 4:00 PM
 Check-out: ${formattedCheckOut} at 11:00 AM
 Duration: ${nights} ${nights === 1 ? 'night' : 'nights'}
 Guests: ${guests} ${guests === 1 ? 'guest' : 'guests'}
+Package: ${packageLabel}
 
 PRICE SUMMARY
 -------------
 ${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.nightlyRate.toFixed(2)} × ${nights} ${nights === 1 ? 'night' : 'nights'}: ${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.subtotal.toFixed(2)}
 ${pricing.discount && pricing.discount.amount > 0 ? `Discount ${pricing.discount.type === 'percent' ? `(${pricing.discount.value}%)` : ''}: -${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.discount.amount.toFixed(2)}\n${pricing.discounted_subtotal && pricing.discounted_subtotal !== pricing.subtotal ? `Subtotal (after discount): ${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.discounted_subtotal.toFixed(2)}\n` : ''}` : ''}${pricing.cleaningFee > 0 ? `Cleaning Fee: ${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.cleaningFee.toFixed(2)}\n` : ''}Lodging Tax: ${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.tax.toFixed(2)}
 Guest Channel Fee: ${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.channelFee.toFixed(2)}
-─────────────────────────────
+${(pricing.packageFee || 0) > 0 ? `${addOnPackage?.name || 'Celebration Package'}: ${pricing.currency === 'USD' ? '$' : pricing.currency}${(pricing.packageFee || 0).toFixed(2)}\n` : ''}─────────────────────────────
 Total: ${pricing.currency === 'USD' ? '$' : pricing.currency}${pricing.total.toFixed(2)}
 
 WHAT TO EXPECT
@@ -529,6 +561,61 @@ Luminary Resorts at Hilltop
 Phone: (404) 590-8346
 Email: lydia@luminaryresorts.com
 Website: https://luminaryresorts.com
+  `.trim()
+}
+
+function generateTeamBookingNotificationEmail(data: BookingConfirmationEmailData): string {
+  const checkInDate = new Date(data.checkIn)
+  const checkOutDate = new Date(data.checkOut)
+  const formattedCheckIn = format(checkInDate, "EEEE, MMMM d, yyyy")
+  const formattedCheckOut = format(checkOutDate, "EEEE, MMMM d, yyyy")
+  const packageLabel = formatBookingAddOnPackageSelection(data.addOnPackage)
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Booking - Luminary Resorts</title>
+</head>
+<body style="font-family: Arial, sans-serif; color: #2C2E21; line-height: 1.6;">
+  <h1 style="margin-bottom: 8px;">New Booking Confirmed</h1>
+  <p style="margin-top: 0;"><strong>${data.confirmationCode}</strong></p>
+  <table cellspacing="0" cellpadding="8" style="border-collapse: collapse; width: 100%; max-width: 640px;">
+    <tr><td><strong>Guest</strong></td><td>${data.guestName}</td></tr>
+    <tr><td><strong>Email</strong></td><td>${data.guestEmail}</td></tr>
+    <tr><td><strong>Cabin</strong></td><td>${data.cabinName}</td></tr>
+    <tr><td><strong>Check-in</strong></td><td>${formattedCheckIn}</td></tr>
+    <tr><td><strong>Check-out</strong></td><td>${formattedCheckOut}</td></tr>
+    <tr><td><strong>Guests</strong></td><td>${data.guests}</td></tr>
+    <tr><td><strong>Package</strong></td><td>${packageLabel}</td></tr>
+    <tr><td><strong>Total</strong></td><td>${data.pricing.currency === 'USD' ? '$' : data.pricing.currency}${data.pricing.total.toFixed(2)}</td></tr>
+  </table>
+</body>
+</html>
+  `.trim()
+}
+
+function generateTeamBookingNotificationEmailText(data: BookingConfirmationEmailData): string {
+  const checkInDate = new Date(data.checkIn)
+  const checkOutDate = new Date(data.checkOut)
+  const formattedCheckIn = format(checkInDate, "EEEE, MMMM d, yyyy")
+  const formattedCheckOut = format(checkOutDate, "EEEE, MMMM d, yyyy")
+  const packageLabel = formatBookingAddOnPackageSelection(data.addOnPackage)
+
+  return `
+NEW BOOKING CONFIRMED
+
+Confirmation Code: ${data.confirmationCode}
+Guest: ${data.guestName}
+Email: ${data.guestEmail}
+Cabin: ${data.cabinName}
+Check-in: ${formattedCheckIn}
+Check-out: ${formattedCheckOut}
+Guests: ${data.guests}
+Package: ${packageLabel}
+Total: ${data.pricing.currency === 'USD' ? '$' : data.pricing.currency}${data.pricing.total.toFixed(2)}
   `.trim()
 }
 
@@ -555,6 +642,15 @@ export async function sendBookingConfirmationEmail(data: BookingConfirmationEmai
       html: generateBookingConfirmationEmail(data),
       text: generateBookingConfirmationEmailText(data),
     })
+
+    await transporter.sendMail({
+      from: `"Luminary Resorts" <${process.env.GMAIL_USER}>`,
+      to: getBookingTeamRecipients(),
+      replyTo: data.guestEmail,
+      subject: `New Booking - ${data.confirmationCode} - ${data.cabinName}`,
+      html: generateTeamBookingNotificationEmail(data),
+      text: generateTeamBookingNotificationEmailText(data),
+    })
     
     console.log(`Booking confirmation email sent to ${data.guestEmail}`)
   } catch (error) {
@@ -562,12 +658,6 @@ export async function sendBookingConfirmationEmail(data: BookingConfirmationEmai
     // Don't throw - email failure shouldn't break the booking process
     // But log it for monitoring
   }
-}
-
-function formatCouponOfferLabel(discount: CouponEmailData["discount"]): string {
-  return discount.type === "percent"
-    ? `${discount.value}% off your stay`
-    : `$${discount.value.toFixed(2)} off your stay`
 }
 
 function generateCouponEmail(data: CouponEmailData): string {
@@ -828,7 +918,7 @@ export async function sendCouponCodeEmail(data: CouponEmailData): Promise<void> 
 
   try {
     const transporter = getTransporter()
-    const subject = `${formatCouponOfferLabel(data.discount)} from Luminary Resorts`
+    const subject = getCouponEmailSubject(data.subject, data.discount)
 
     await transporter.sendMail({
       from: `"Luminary Resorts" <${process.env.GMAIL_USER}>`,

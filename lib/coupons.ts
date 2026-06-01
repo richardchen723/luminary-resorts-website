@@ -90,6 +90,7 @@ export interface CouponPricingValidationInput {
   tax: number
   channelFee: number
   petFee?: number
+  packageFee?: number
   total: number
   discount?: {
     type: CouponDiscountType
@@ -544,7 +545,8 @@ export async function validateCouponPricing(
       roundToTwoDecimals(pricing.cleaningFee) +
       roundToTwoDecimals(pricing.tax) +
       roundToTwoDecimals(pricing.channelFee) +
-      roundToTwoDecimals(pricing.petFee || 0)
+      roundToTwoDecimals(pricing.petFee || 0) +
+      roundToTwoDecimals(pricing.packageFee || 0)
   )
 
   if (roundToTwoDecimals(pricing.total) !== expectedTotal) {

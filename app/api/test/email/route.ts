@@ -30,8 +30,14 @@ export async function POST(request: Request) {
         cleaningFee: 100.00,
         tax: 40.80, // 12% of discounted subtotal
         channelFee: 6.80, // 2% of discounted subtotal
-        total: 487.60,
+        packageFee: 190.00,
+        total: 677.60,
         currency: "USD",
+      },
+      addOnPackage: {
+        id: "romantic" as const,
+        name: "Romantic Package",
+        price: 190,
       },
     }
 
