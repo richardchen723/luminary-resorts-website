@@ -775,6 +775,18 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     return startOfDay(new Date())
   }, [])
 
+  const hasSelectedDates = Boolean(checkIn && checkOut)
+  const priceHintTitle = !hasSelectedDates
+    ? "Select dates to see the total price"
+    : isLoadingPricing
+    ? "Calculating the price for these dates"
+    : pricing?.available && pricing.total > 0
+    ? "Total price is shown below"
+    : "Dates selected"
+  const priceHintDescription = !hasSelectedDates
+    ? "Choose check-in and check-out dates and this box will show the nightly rate, fees, taxes, and total."
+    : "Nightly rate, fees, taxes, and total update automatically for your selected stay."
+
   if (!listingId) {
     return (
       <Card className={`p-6 ${className}`}>
@@ -1003,6 +1015,17 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
               )}
             </PopoverContent>
           </Popover>
+          <div className="mt-3 flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm">
+            {isLoadingPricing ? (
+              <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary" aria-hidden="true" />
+            ) : (
+              <DollarSign className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            )}
+            <div className="space-y-0.5">
+              <p className="font-medium leading-none">{priceHintTitle}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">{priceHintDescription}</p>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4">
