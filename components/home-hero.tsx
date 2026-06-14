@@ -15,8 +15,8 @@ const HERO_IMAGES = [
     alt: "SOL - Image 4",
   },
   {
-    src: "https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/7dd4c75a-f44c-4b7d-8b1a-8026666dbafd.jpeg?aki_policy=xx_large",
-    alt: "SOL - Image 1",
+    src: "https://hostaway-platform.s3.us-west-2.amazonaws.com/listing/57690-472340-xgwWXe0h-sKKV8l83v8uEPWrUvC7ccvqxluCAkjYxxA-6a00970f33ace",
+    alt: "SOL - Image 2",
   },
 ]
 
