@@ -11,7 +11,7 @@ const HERO_IMAGES = [
     alt: "DEW - Image 24",
   },
   {
-    src: "https://a0.muscache.com/im/pictures/hosting/Hosting-1585945257767036176/original/933ee2dc-c03a-444b-8d43-a73c02a27193.jpeg?aki_policy=xx_large",
+    src: "/home-hero-sol-original.jpg",
     alt: "SOL - Image 4",
   },
   {
