@@ -522,8 +522,8 @@ export function TextInquiryDialog({
             <div className="space-y-2">
               <DialogTitle>Check your text messages</DialogTitle>
               <DialogDescription>
-                We sent a text to the mobile number you provided. Reply to that message and our
-                team will continue the conversation in Hostaway.
+                We sent a text to the mobile number you provided. Reply to continue the
+                conversation with the Luminary Resorts team.
               </DialogDescription>
               <p className="text-xs text-muted-foreground">Inquiry #{completedInquiryId}</p>
             </div>
@@ -543,8 +543,8 @@ export function TextInquiryDialog({
               </div>
               <DialogTitle>Text with us</DialogTitle>
               <DialogDescription>
-                We&apos;ll create a Hostaway inquiry and text the number you provide. Reply to that
-                text to continue with our team.
+                Share a few details and we&apos;ll text the number you provide. Reply to that text to
+                connect directly with the Luminary Resorts team.
               </DialogDescription>
             </DialogHeader>
 
@@ -762,8 +762,8 @@ export function TextInquiryDialog({
           <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
-              Your details are sent securely to Hostaway so our team can see the correct property,
-              dates, and text conversation in one inbox.
+              Your details are shared securely with the Luminary Resorts team so we can help with
+              the right cabin, dates, and request.
             </p>
           </div>
 
