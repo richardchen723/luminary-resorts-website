@@ -3,12 +3,14 @@ import { isDatabaseAvailable } from "@/lib/db/client"
 import { getCabinBySlugSync } from "@/lib/cabins"
 import { buildGuestChatPlaceholderEmail } from "@/lib/guest-chat-utils"
 import {
+  addHostawayIncomingGuestMessage,
   createInquiry,
   sendHostawayConversationMessage,
   waitForConversationForReservation,
 } from "@/lib/hostaway"
 import { getListingIdBySlug } from "@/lib/listing-map"
 import {
+  buildHostawayGuestConversationMessage,
   buildHostawayInquiryNote,
   buildInitialTextMessage,
   buildTextInquiryFingerprint,
@@ -213,6 +215,19 @@ export async function POST(request: NextRequest) {
     })
     if (!conversation?.id) {
       throw new Error("Hostaway did not create an inbox conversation for this inquiry")
+    }
+
+    const guestConversationMessage = buildHostawayGuestConversationMessage(normalizedDetails)
+    if (guestConversationMessage) {
+      const guestMessageAlreadyPreserved = conversation.conversationMessages?.some(
+        (message) =>
+          Number(message.isIncoming) === 1 &&
+          message.body?.trim() === guestConversationMessage
+      )
+
+      if (!guestMessageAlreadyPreserved) {
+        await addHostawayIncomingGuestMessage(conversation.id, guestConversationMessage)
+      }
     }
 
     const initialTextMessage = buildInitialTextMessage(normalizedDetails, hostawayReservationId)

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import {
+  buildHostawayGuestConversationMessage,
   buildHostawayInquiryNote,
   buildInitialTextMessage,
   buildTextInquiryFingerprint,
@@ -69,6 +70,13 @@ test("builds Hostaway notes and a concise initial SMS", () => {
   assert.match(hostawayNote, /Website text-message inquiry from Sarah Chen/)
   assert.match(hostawayNote, /Cabin: Dew/)
   assert.match(hostawayNote, /Mobile phone: \+15551234567/)
+  assert.match(hostawayNote, /Guest message: Is the pool heated\?/)
+
+  assert.equal(
+    buildHostawayGuestConversationMessage(baseDetails),
+    "Is the pool heated?"
+  )
+  assert.equal(buildHostawayGuestConversationMessage({ message: "   " }), null)
 
   const initialText = buildInitialTextMessage(baseDetails, 52652999)
   assert.match(initialText, /Inquiry #52652999/)

@@ -476,6 +476,30 @@ export async function sendHostawayConversationMessage(
 }
 
 /**
+ * Preserve a message the guest submitted on the website in the Hostaway inbox.
+ * Omitting communicationType prevents Hostaway from sending it back out through
+ * SMS or another external channel.
+ */
+export async function addHostawayIncomingGuestMessage(
+  conversationId: number,
+  body: string
+): Promise<HostawayConversationMessageSummary> {
+  const messageBody = body.trim()
+  if (!messageBody) {
+    throw new Error("Guest message cannot be empty")
+  }
+
+  return makeRequest<HostawayConversationMessageSummary>(
+    `/conversations/${conversationId}/messages`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: messageBody, isIncoming: 1 }),
+    }
+  )
+}
+
+/**
  * Add a message to a Hostaway conversation
  * @param reservationId - The reservation/inquiry ID
  * @param message - The message text

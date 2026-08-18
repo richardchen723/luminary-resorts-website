@@ -127,6 +127,13 @@ export function buildHostawayInquiryNote(details: TextInquiryDetails): string {
   return lines.join("\n")
 }
 
+export function buildHostawayGuestConversationMessage(
+  details: Pick<TextInquiryDetails, "message">
+): string | null {
+  const message = details.message.trim()
+  return message || null
+}
+
 function formatCompactStayDates(checkIn: string, checkOut: string): string {
   const formatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" })
   return `${formatter.format(new Date(`${checkIn}T00:00:00Z`))}–${formatter.format(
