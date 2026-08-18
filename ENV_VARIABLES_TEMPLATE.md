@@ -52,7 +52,20 @@ HOSTAWAY_CLIENT_SECRET=your_hostaway_client_secret
 HOSTAWAY_ACCESS_TOKEN=your_hostaway_access_token
 ```
 
-**How to get**: From your Hostaway account settings or API documentation.
+### Hostaway SMS
+
+```
+HOSTAWAY_SMS_ENABLED=true
+TEXT_INQUIRY_RATE_LIMIT=5
+TEXT_INQUIRY_HASH_SALT=replace_with_a_random_secret
+```
+
+Hostaway sends the initial SMS from its provider number, so no business phone number is required.
+Set `HOSTAWAY_SMS_ENABLED=false` as an emergency kill switch. The rate limit is optional and
+defaults to five inquiry attempts per guest phone or browser IP per hour.
+
+Two-way SMS is most reliable for US, Canadian, and UK phone numbers. Confirm that SMS is available
+for the Hostaway account before enabling this in production.
 
 ---
 
@@ -118,6 +131,8 @@ After setting all variables:
 - [ ] `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` set (production for Production, test for others)
 - [ ] `HOSTAWAY_CLIENT_ID` set for all environments
 - [ ] `HOSTAWAY_CLIENT_SECRET` set for all environments
+- [ ] Hostaway two-way SMS is active for the account
+- [ ] `TEXT_INQUIRY_HASH_SALT` is set to a random secret
 - [ ] `GMAIL_USER` set for all environments
 - [ ] `GMAIL_APP_PASSWORD` set for all environments
 - [ ] `NODE_ENV=production` set for Production only

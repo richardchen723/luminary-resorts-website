@@ -168,6 +168,11 @@ const MIGRATION_005 = readFileSync(
   'utf-8'
 )
 
+const MIGRATION_006 = readFileSync(
+  join(process.cwd(), 'lib/db/migrations/006_text_inquiries.sql'),
+  'utf-8'
+)
+
 async function runMigrationStatements(
   label: string,
   sql: string,
@@ -297,6 +302,20 @@ export async function POST(request: Request) {
       throw error
     }
 
+    // Run Migration 006
+    try {
+      console.log('Running Migration 006: Text Inquiries...')
+      await runMigrationStatements(
+        'Migration 006',
+        MIGRATION_006,
+        results,
+        '✅ Migration 006 completed successfully'
+      )
+    } catch (error: any) {
+      results.push(`❌ Migration 006 failed: ${error.message}`)
+      throw error
+    }
+
     // Verify tables exist
     try {
       const tablesResult = await query(
@@ -334,6 +353,12 @@ export async function POST(request: Request) {
       } else {
         const missing = expectedCouponTables.filter(t => !tables.includes(t))
         results.push(`⚠️ Missing coupon tables: ${missing.join(', ')}`)
+      }
+
+      if (tables.includes('website_text_inquiries')) {
+        results.push('✅ Text inquiry tracking table verified')
+      } else {
+        results.push('⚠️ Missing text inquiry tracking table')
       }
     } catch (error: any) {
       results.push(`⚠️ Could not verify tables: ${error.message}`)

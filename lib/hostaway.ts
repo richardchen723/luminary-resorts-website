@@ -254,6 +254,7 @@ export async function createInquiry(inquiryData: {
     country?: string
   }
   message: string // Required - will be posted to Hostaway inbox
+  mirrorMessageToConversation?: boolean
 }): Promise<{ id: number; hostawayReservationId: string; messageId?: number }> {
   try {
     // #region agent log
@@ -348,7 +349,11 @@ export async function createInquiry(inquiryData: {
     
     // Add message to conversation if message is provided
     let messageId: number | null = null
-    if (inquiryData.message && inquiryData.message.trim()) {
+    if (
+      inquiryData.mirrorMessageToConversation !== false &&
+      inquiryData.message &&
+      inquiryData.message.trim()
+    ) {
       try {
         // #region agent log
         fetch('http://127.0.0.1:7243/ingest/b28ecb8f-e0a5-4667-81bf-490fe6e90b80',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/hostaway.ts:348',message:'createInquiry - Attempting to add message to conversation',data:{reservationId,message:inquiryData.message.trim(),messageLength:inquiryData.message.trim().length},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'J'})}).catch(()=>{});
@@ -384,6 +389,90 @@ export async function createInquiry(inquiryData: {
     console.error(`❌ Failed to create inquiry: ${error.message}`)
     throw error
   }
+}
+
+export interface HostawayConversationMessageSummary {
+  id: number
+  communicationType?: string
+  status?: string
+  isIncoming?: number
+  body?: string
+}
+
+export interface HostawayConversationSummary {
+  id: number
+  reservationId: number | string
+  type?: string
+  conversationMessages?: HostawayConversationMessageSummary[]
+}
+
+/**
+ * Retrieve the Hostaway inbox conversation linked to a reservation or inquiry.
+ */
+export async function getConversationForReservation(
+  reservationId: number
+): Promise<HostawayConversationSummary | null> {
+  const conversations = await makeRequest<HostawayConversationSummary[]>(
+    `/conversations?reservationId=${reservationId}&limit=10`,
+    { method: "GET" }
+  )
+
+  return (
+    conversations.find(
+      (conversation) => Number(conversation.reservationId) === Number(reservationId)
+    ) ||
+    conversations[0] ||
+    null
+  )
+}
+
+/**
+ * Hostaway creates the inbox conversation asynchronously after an inquiry is created.
+ */
+export async function waitForConversationForReservation(
+  reservationId: number,
+  options?: { attempts?: number; delayMs?: number }
+): Promise<HostawayConversationSummary | null> {
+  const attempts = options?.attempts ?? 6
+  const delayMs = options?.delayMs ?? 500
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs))
+    }
+
+    try {
+      const conversation = await getConversationForReservation(reservationId)
+      if (conversation) return conversation
+    } catch (error) {
+      if (attempt === attempts - 1) {
+        console.warn(
+          `Unable to verify Hostaway conversation for reservation ${reservationId}:`,
+          error
+        )
+      }
+    }
+  }
+
+  return null
+}
+
+/**
+ * Send a message through one of Hostaway's supported communication gateways.
+ */
+export async function sendHostawayConversationMessage(
+  conversationId: number,
+  body: string,
+  communicationType: "email" | "channel" | "sms" | "whatsapp"
+): Promise<HostawayConversationMessageSummary> {
+  return makeRequest<HostawayConversationMessageSummary>(
+    `/conversations/${conversationId}/messages`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body, communicationType }),
+    }
+  )
 }
 
 /**

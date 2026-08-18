@@ -18,6 +18,7 @@ const MIGRATION_002 = readFileSync(join(process.cwd(), 'lib/db/migrations/002_ad
 const MIGRATION_003 = readFileSync(join(process.cwd(), 'lib/db/migrations/003_affiliate_marketing.sql'), 'utf-8')
 const MIGRATION_004 = readFileSync(join(process.cwd(), 'lib/db/migrations/004_guest_chat.sql'), 'utf-8')
 const MIGRATION_005 = readFileSync(join(process.cwd(), 'lib/db/migrations/005_coupon_codes.sql'), 'utf-8')
+const MIGRATION_006 = readFileSync(join(process.cwd(), 'lib/db/migrations/006_text_inquiries.sql'), 'utf-8')
 
 async function runMigrationStatements(label: string, sql: string) {
   const statements = splitSqlStatements(sql)
@@ -97,6 +98,16 @@ async function runMigrations() {
     throw error
   }
 
+  // Run Migration 006
+  try {
+    console.log('📦 Running Migration 006: Text Inquiries...')
+    await runMigrationStatements('Migration 006', MIGRATION_006)
+    console.log('✅ Migration 006 completed successfully\n')
+  } catch (error: any) {
+    console.error('❌ Migration 006 failed:', error.message)
+    throw error
+  }
+
   // Verify tables exist
   try {
     console.log('🔍 Verifying tables...')
@@ -122,7 +133,8 @@ async function runMigrations() {
       'guest_chat_threads',
       'guest_chat_messages',
       'coupon_codes',
-      'coupon_redemptions'
+      'coupon_redemptions',
+      'website_text_inquiries'
     ]
     const missingTables = expectedTables.filter(t => !tables.includes(t))
     

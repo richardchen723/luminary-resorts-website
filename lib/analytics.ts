@@ -82,3 +82,22 @@ export function trackChatConvertedToInquiry(threadId: string) {
     thread_id: threadId,
   })
 }
+
+export function trackTextInquiryStarted(cabinSlug: string, sourcePath: string) {
+  trackSEOEvent('text_inquiry_started', {
+    cabin_slug: cabinSlug,
+    source_path: sourcePath,
+  })
+}
+
+export function trackTextInquiryCreated(
+  inquiryId: string,
+  cabinSlug: string,
+  smsStatus: string | null
+) {
+  trackSEOEvent('text_inquiry_created', {
+    inquiry_id: inquiryId,
+    cabin_slug: cabinSlug,
+    sms_status: smsStatus,
+  })
+}

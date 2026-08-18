@@ -68,7 +68,17 @@ export default function RootLayout({
       </head>
       <body className={`${quicksand.variable} ${dancingScript.variable} font-sans antialiased`}>
         <GA4 />
-        <GuestChatProvider>{children}</GuestChatProvider>
+        <GuestChatProvider
+          textMessagingEnabled={
+            process.env.HOSTAWAY_SMS_ENABLED !== "false" &&
+            Boolean(
+              process.env.HOSTAWAY_ACCESS_TOKEN ||
+                (process.env.HOSTAWAY_CLIENT_ID && process.env.HOSTAWAY_CLIENT_SECRET)
+            )
+          }
+        >
+          {children}
+        </GuestChatProvider>
         <Analytics />
       </body>
     </html>

@@ -28,7 +28,7 @@ interface CabinBookingWidgetProps {
 export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWidgetProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const { openChat } = useGuestChat()
+  const { openTextInquiry, textMessagingEnabled } = useGuestChat()
   
   // Get listing ID from slug
   const listingId = getListingIdBySlug(cabinSlug)
@@ -540,7 +540,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
         .join(" ")
 
-      openChat({
+      openTextInquiry({
         initialIntent: "availability",
         context: {
           listingSlug: cabinSlug,
@@ -1199,17 +1199,19 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         )}
 
         <div className="flex flex-col gap-3 pt-2">
-          <Button
-            type="button"
-            onClick={handleSendInquiry}
-            disabled={!checkIn || !checkOut}
-            size="lg"
-            className="w-full rounded-full"
-            variant="outline"
-            title={!checkIn || !checkOut ? "Please select check-in and check-out dates" : ""}
-          >
-            Send Inquiry
-          </Button>
+          {textMessagingEnabled && (
+            <Button
+              type="button"
+              onClick={handleSendInquiry}
+              disabled={!checkIn || !checkOut}
+              size="lg"
+              className="w-full rounded-full"
+              variant="outline"
+              title={!checkIn || !checkOut ? "Please select check-in and check-out dates" : ""}
+            >
+              Text with us
+            </Button>
+          )}
 
           <Button
             type="button"
