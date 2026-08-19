@@ -1,5 +1,6 @@
 import { createHash } from "crypto"
 import { z } from "zod"
+import { labelHostawayGuestMessage } from "@/lib/hostaway-message-source"
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const E164_PATTERN = /^\+[1-9]\d{7,14}$/
@@ -130,7 +131,7 @@ export function buildHostawayInquiryNote(details: TextInquiryDetails): string {
 export function buildHostawayGuestConversationMessage(
   details: Pick<TextInquiryDetails, "message">
 ): string | null {
-  const message = details.message.trim()
+  const message = labelHostawayGuestMessage(details.message, "text_message_form")
   return message || null
 }
 

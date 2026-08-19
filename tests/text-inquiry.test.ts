@@ -74,7 +74,7 @@ test("builds Hostaway notes and a concise initial SMS", () => {
 
   assert.equal(
     buildHostawayGuestConversationMessage(baseDetails),
-    "Is the pool heated?"
+    "Is the pool heated?\n\n(Source: Luminary website — text-message form)"
   )
   assert.equal(buildHostawayGuestConversationMessage({ message: "   " }), null)
 
