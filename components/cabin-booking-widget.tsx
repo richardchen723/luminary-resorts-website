@@ -43,7 +43,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
   const searchParams = useSearchParams()
   const router = useRouter()
   const isMobile = useIsMobile()
-  const { openTextInquiry, textMessagingEnabled, setLauncherSuppressed } = useGuestChat()
+  const { openTextInquiry, setLauncherSuppressed } = useGuestChat()
   
   // Get listing ID from slug
   const listingId = getListingIdBySlug(cabinSlug)
@@ -1227,19 +1227,17 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
         )}
 
         <div className="flex flex-col gap-3 pt-2">
-          {textMessagingEnabled && (
-            <Button
-              type="button"
-              onClick={handleSendInquiry}
-              disabled={!checkIn || !checkOut}
-              size="lg"
-              className="w-full rounded-full"
-              variant="outline"
-              title={!checkIn || !checkOut ? "Please select check-in and check-out dates" : ""}
-            >
-              Text with us
-            </Button>
-          )}
+          <Button
+            type="button"
+            onClick={handleSendInquiry}
+            disabled={!checkIn || !checkOut}
+            size="lg"
+            className="w-full rounded-full"
+            variant="outline"
+            title={!checkIn || !checkOut ? "Please select check-in and check-out dates" : ""}
+          >
+            Chat about these dates
+          </Button>
 
           <Button
             type="button"

@@ -173,6 +173,16 @@ const MIGRATION_006 = readFileSync(
   'utf-8'
 )
 
+const MIGRATION_007 = readFileSync(
+  join(process.cwd(), 'lib/db/migrations/007_chat_sms_fallback.sql'),
+  'utf-8'
+)
+
+const MIGRATION_008 = readFileSync(
+  join(process.cwd(), 'lib/db/migrations/008_hostaway_chat_linking.sql'),
+  'utf-8'
+)
+
 async function runMigrationStatements(
   label: string,
   sql: string,
@@ -313,6 +323,34 @@ export async function POST(request: Request) {
       )
     } catch (error: any) {
       results.push(`❌ Migration 006 failed: ${error.message}`)
+      throw error
+    }
+
+    // Run Migration 007
+    try {
+      console.log('Running Migration 007: Chat SMS Fallback...')
+      await runMigrationStatements(
+        'Migration 007',
+        MIGRATION_007,
+        results,
+        '✅ Migration 007 completed successfully'
+      )
+    } catch (error: any) {
+      results.push(`❌ Migration 007 failed: ${error.message}`)
+      throw error
+    }
+
+    // Run Migration 008
+    try {
+      console.log('Running Migration 008: Hostaway Chat Linking...')
+      await runMigrationStatements(
+        'Migration 008',
+        MIGRATION_008,
+        results,
+        '✅ Migration 008 completed successfully'
+      )
+    } catch (error: any) {
+      results.push(`❌ Migration 008 failed: ${error.message}`)
       throw error
     }
 

@@ -34,7 +34,7 @@ export async function POST(
         ? 503
         : error?.message === "Chat thread not found" || error?.message?.startsWith("Listing not found")
           ? 404
-          : error?.message === "Thread is missing required booking details for Hostaway conversion"
+          : error?.message === "Thread is missing required guest contact details for Hostaway conversion"
             ? 409
             : 500
 

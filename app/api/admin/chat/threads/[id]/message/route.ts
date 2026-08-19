@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server"
+import { after, NextRequest, NextResponse } from "next/server"
 import { requireAuthApi } from "@/lib/auth-helpers"
 import {
   CHAT_UNAVAILABLE_ERROR,
   adminReplySchema,
   appendAdminReplyToThread,
+  routeUnreadHostawayRepliesToSms,
 } from "@/lib/chat"
 
 export async function POST(
@@ -15,6 +16,13 @@ export async function POST(
     const resolvedParams = params instanceof Promise ? await params : params
     const body = adminReplySchema.parse(await request.json())
     const thread = await appendAdminReplyToThread(resolvedParams.id, adminUser, body)
+
+    after(async () => {
+      const result = await routeUnreadHostawayRepliesToSms(thread.id)
+      if (result.status === "failed") {
+        console.error("Failed to route admin reply by SMS:", result.error)
+      }
+    })
 
     return NextResponse.json({ thread })
   } catch (error: any) {

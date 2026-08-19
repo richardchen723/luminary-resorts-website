@@ -1,13 +1,25 @@
 import { randomBytes } from "crypto"
 import { z } from "zod"
 import { query, isDatabaseAvailable } from "@/lib/db/client"
-import { addMessageToConversation, createInquiry } from "@/lib/hostaway"
+import {
+  addMessageToConversation,
+  createInquiry,
+  getNearestAvailableInquiryDates,
+  getConversationForReservation,
+  getHostawayConversation,
+  sendHostawayConversationMessage,
+} from "@/lib/hostaway"
 import { getListingIdBySlug } from "@/lib/listing-map"
 import { getCabinBySlugSync } from "@/lib/cabins"
 import { getTransporter } from "@/lib/email"
+import { normalizeTextPhone } from "@/lib/text-inquiry"
 import {
+  buildGuestChatFallbackSms,
   buildGuestChatPlaceholderEmail,
   GUEST_CHAT_AUTOMATED_RESPONSE,
+  GUEST_CHAT_WEBCHAT_ONLY_AUTOMATED_RESPONSE,
+  hostawayMessageBodyToPlainText,
+  isInternalGuestChatSystemMessage,
   isGuestChatPlaceholderEmail,
 } from "@/lib/guest-chat-utils"
 import type { AdminUser } from "@/lib/auth"
@@ -28,6 +40,15 @@ import type {
 } from "@/types/guest-chat"
 
 const CHAT_UNAVAILABLE_ERROR = "Guest chat is unavailable"
+export const GENERAL_INQUIRY_LISTING_SLUG = "dew"
+
+function isHostawaySmsFallbackEnabled(): boolean {
+  const hostawayMessagingConfigured = Boolean(
+    process.env.HOSTAWAY_ACCESS_TOKEN ||
+      (process.env.HOSTAWAY_CLIENT_ID && process.env.HOSTAWAY_CLIENT_SECRET)
+  )
+  return process.env.HOSTAWAY_SMS_ENABLED !== "false" && hostawayMessagingConfigured
+}
 
 const optionalStringField = (maxLength: number) =>
   z.preprocess(
@@ -97,6 +118,10 @@ export const convertThreadToInquirySchema = z.object({
   pets: optionalIntegerField(0, 20),
   infants: optionalIntegerField(0, 20),
   guestPhone: optionalStringField(50),
+})
+
+export const guestChatPresenceSchema = z.object({
+  state: z.enum(["open", "heartbeat", "closed"]),
 })
 
 interface GuestChatThreadRow {
@@ -241,7 +266,7 @@ function mergeContext(
 function normalizePhone(phone?: string | null): string | null {
   if (!phone) return null
   const trimmed = phone.trim()
-  return trimmed.length > 0 ? trimmed : null
+  return trimmed.length > 0 ? normalizeTextPhone(trimmed, "+1") : null
 }
 
 function parseNullableInteger(value: number | string | null | undefined): number | null {
@@ -380,7 +405,10 @@ export async function getGuestChatThreadForGuest(
   }
 
   const summary = mapThreadSummary(threadRow)
-  const messages = await getMessagesForThread(threadId)
+  const messages = (await getMessagesForThread(threadId)).filter(
+    (message) =>
+      message.authorType !== "system" || !isInternalGuestChatSystemMessage(message.body)
+  )
 
   return {
     ...summary,
@@ -405,6 +433,400 @@ export async function getAdminChatThread(threadId: string): Promise<GuestChatThr
     messages,
     canConvertToInquiry: canConvertThreadToInquiry(summary),
   }
+}
+
+/**
+ * Pull team replies sent from Hostaway into the website conversation. Guest
+ * messages already originate in the website thread and are mirrored in the
+ * other direction, so only outgoing Hostaway messages are imported here.
+ */
+export async function syncHostawayTeamRepliesToThread(
+  thread: GuestChatThreadDetail
+): Promise<number> {
+  if (!thread.hostawayReservationId) return 0
+
+  const conversation = await getConversationForReservation(thread.hostawayReservationId)
+  if (!conversation?.conversationMessages?.length) return 0
+
+  let importedCount = 0
+  const teamMessages = conversation.conversationMessages
+    .filter((message) => Number(message.isIncoming) !== 1 && message.body?.trim())
+    .sort((left, right) => Number(left.id) - Number(right.id))
+
+  for (const message of teamMessages) {
+    const hostawayMessageId = Number(message.id)
+    const body = hostawayMessageBodyToPlainText(message.body || "")
+    if (!Number.isInteger(hostawayMessageId) || hostawayMessageId <= 0 || !body) continue
+
+    const updatedExistingMessage = await query(
+      `
+        UPDATE guest_chat_messages
+        SET body = $2,
+            hostaway_communication_type = $4,
+            hostaway_sync_status = 'mirrored',
+            hostaway_sync_error = NULL
+        WHERE thread_id = $1
+          AND hostaway_message_id = $3
+      `,
+      [thread.id, body, hostawayMessageId, message.communicationType || null]
+    )
+    if (updatedExistingMessage.rowCount > 0) continue
+
+    const result = await query(
+      `
+        INSERT INTO guest_chat_messages (
+          thread_id,
+          author_type,
+          body,
+          hostaway_message_id,
+          hostaway_communication_type,
+          hostaway_sync_status
+        )
+        SELECT $1, 'staff', $2, $3, $4, 'mirrored'
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM guest_chat_messages
+          WHERE thread_id = $1
+            AND (
+              hostaway_message_id = $3
+              OR sms_fallback_message_id = $3
+            )
+        )
+      `,
+      [thread.id, body, hostawayMessageId, message.communicationType || null]
+    )
+
+    if (result.rowCount === 1) importedCount += 1
+  }
+
+  if (importedCount > 0) {
+    await query(
+      `
+        UPDATE guest_chat_threads
+        SET status = CASE
+              WHEN status IN ('closed', 'spam') THEN status
+              ELSE 'waiting_on_guest'
+            END,
+            updated_at = NOW()
+        WHERE id = $1
+      `,
+      [thread.id]
+    )
+  }
+
+  return importedCount
+}
+
+export type GuestChatPresenceState = "open" | "heartbeat" | "closed"
+
+export async function updateGuestChatPresence(
+  threadId: string,
+  guestToken: string,
+  state: GuestChatPresenceState
+): Promise<boolean> {
+  assertChatAvailable()
+  const parsedState = guestChatPresenceSchema.parse({ state }).state
+
+  const assignments =
+    parsedState === "closed"
+      ? "webchat_closed_at = NOW(), webchat_last_seen_at = NOW()"
+      : parsedState === "open"
+        ? "webchat_opened_at = NOW(), webchat_last_seen_at = NOW(), webchat_closed_at = NULL"
+        : "webchat_last_seen_at = NOW(), webchat_closed_at = NULL"
+
+  const result = await query(
+    `
+      UPDATE guest_chat_threads
+      SET ${assignments}
+      WHERE id = $1
+        AND guest_token = $2
+    `,
+    [threadId, guestToken]
+  )
+
+  return result.rowCount === 1
+}
+
+interface SmsFallbackThreadRow {
+  id: string
+  guest_phone: string | null
+  hostaway_reservation_id: number | string | null
+  is_webchat_active: boolean
+}
+
+interface SmsFallbackMessageRow {
+  id: string
+  body: string
+  created_at: string | Date
+}
+
+export type SmsFallbackResult =
+  | { status: "disabled" | "active" | "not_linked" | "nothing_to_send" }
+  | { status: "sent"; messageCount: number; smsMessageId: number }
+  | { status: "failed"; messageCount: number; error: string }
+
+/**
+ * Send unread Hostaway/team replies by SMS only after the webchat is closed or
+ * its heartbeat has gone stale. Messages are claimed before the external send
+ * so concurrent close/webhook requests cannot send the same fallback twice.
+ */
+export async function routeUnreadHostawayRepliesToSms(
+  threadId: string
+): Promise<SmsFallbackResult> {
+  assertChatAvailable()
+
+  if (!isHostawaySmsFallbackEnabled()) {
+    return { status: "disabled" }
+  }
+
+  const threadResult = await query<SmsFallbackThreadRow>(
+    `
+      SELECT
+        id,
+        guest_phone,
+        hostaway_reservation_id,
+        (
+          webchat_closed_at IS NULL
+          AND webchat_last_seen_at >= NOW() - INTERVAL '25 seconds'
+        ) AS is_webchat_active
+      FROM guest_chat_threads
+      WHERE id = $1
+      LIMIT 1
+    `,
+    [threadId]
+  )
+  const thread = threadResult.rows?.[0]
+
+  if (!thread?.guest_phone || !parseNullableInteger(thread.hostaway_reservation_id)) {
+    return { status: "not_linked" }
+  }
+  if (thread.is_webchat_active) {
+    return { status: "active" }
+  }
+
+  const claimedResult = await query<SmsFallbackMessageRow>(
+    `
+      WITH candidates AS (
+        SELECT m.id
+        FROM guest_chat_messages m
+        JOIN guest_chat_threads t ON t.id = m.thread_id
+        WHERE m.thread_id = $1
+          AND m.author_type = 'staff'
+          AND m.hostaway_message_id IS NOT NULL
+          AND COALESCE(m.hostaway_communication_type, '') <> 'sms'
+          AND m.created_at > COALESCE(t.last_guest_read_at, to_timestamp(0))
+          AND (
+            t.webchat_closed_at IS NOT NULL
+            OR t.webchat_last_seen_at IS NULL
+            OR t.webchat_last_seen_at < NOW() - INTERVAL '25 seconds'
+          )
+          AND m.sms_fallback_sent_at IS NULL
+          AND (
+            m.sms_fallback_status IS NULL
+            OR (
+              m.sms_fallback_status = 'failed'
+              AND m.sms_fallback_attempt_count < 3
+              AND m.sms_fallback_attempted_at < NOW() - INTERVAL '1 minute'
+            )
+          )
+        ORDER BY m.created_at ASC
+        FOR UPDATE OF m SKIP LOCKED
+      )
+      UPDATE guest_chat_messages m
+      SET sms_fallback_status = 'sending',
+          sms_fallback_attempt_count = sms_fallback_attempt_count + 1,
+          sms_fallback_attempted_at = NOW(),
+          sms_fallback_error = NULL
+      FROM candidates c
+      WHERE m.id = c.id
+      RETURNING m.id, m.body, m.created_at
+    `,
+    [threadId]
+  )
+
+  const claimedMessages = (claimedResult.rows || []).sort(
+    (left, right) =>
+      new Date(left.created_at).getTime() - new Date(right.created_at).getTime()
+  )
+  if (claimedMessages.length === 0) {
+    return { status: "nothing_to_send" }
+  }
+
+  const claimedIds = claimedMessages.map((message) => message.id)
+
+  const deliveryState = await query<{
+    is_webchat_active: boolean
+    has_unread_claimed_messages: boolean
+  }>(
+    `
+      SELECT
+        (
+          t.webchat_closed_at IS NULL
+          AND t.webchat_last_seen_at >= NOW() - INTERVAL '25 seconds'
+        ) AS is_webchat_active,
+        EXISTS (
+          SELECT 1
+          FROM guest_chat_messages m
+          WHERE m.id = ANY($2::uuid[])
+            AND m.created_at > COALESCE(t.last_guest_read_at, to_timestamp(0))
+        ) AS has_unread_claimed_messages
+      FROM guest_chat_threads t
+      WHERE t.id = $1
+    `,
+    [threadId, claimedIds]
+  )
+  const currentDeliveryState = deliveryState.rows?.[0]
+
+  if (
+    currentDeliveryState?.is_webchat_active ||
+    !currentDeliveryState?.has_unread_claimed_messages
+  ) {
+    await query(
+      `
+        UPDATE guest_chat_messages
+        SET sms_fallback_status = NULL,
+            sms_fallback_error = NULL
+        WHERE id = ANY($1::uuid[])
+          AND sms_fallback_status = 'sending'
+      `,
+      [claimedIds]
+    )
+
+    return currentDeliveryState?.is_webchat_active
+      ? { status: "active" }
+      : { status: "nothing_to_send" }
+  }
+
+  try {
+    const reservationId = parseNullableInteger(thread.hostaway_reservation_id) as number
+    const conversation = await getConversationForReservation(reservationId)
+    if (!conversation?.id) {
+      throw new Error("Hostaway conversation is not available")
+    }
+
+    const smsBody = buildGuestChatFallbackSms(
+      claimedMessages.map((message) => message.body)
+    )
+    const smsMessage = await sendHostawayConversationMessage(
+      conversation.id,
+      smsBody,
+      "sms"
+    )
+    const smsMessageId = Number(smsMessage.id)
+    if (!Number.isInteger(smsMessageId) || smsMessageId <= 0) {
+      throw new Error("Hostaway did not return a valid SMS message ID")
+    }
+    if (
+      smsMessage.status === "failed" ||
+      smsMessage.status === "cancelled_by_user" ||
+      smsMessage.status === "cancelled_by_system"
+    ) {
+      throw new Error("Hostaway could not send the fallback text")
+    }
+
+    await query(
+      `
+        UPDATE guest_chat_messages
+        SET sms_fallback_status = 'sent',
+            sms_fallback_message_id = $2,
+            sms_fallback_sent_at = NOW(),
+            sms_fallback_error = NULL
+        WHERE id = ANY($1::uuid[])
+      `,
+      [claimedIds, smsMessageId]
+    )
+
+    return {
+      status: "sent",
+      messageCount: claimedMessages.length,
+      smsMessageId,
+    }
+  } catch (error: any) {
+    const errorMessage = error?.message || "Failed to send fallback text"
+    await query(
+      `
+        UPDATE guest_chat_messages
+        SET sms_fallback_status = 'failed',
+            sms_fallback_error = $2
+        WHERE id = ANY($1::uuid[])
+      `,
+      [claimedIds, errorMessage]
+    ).catch(() => {})
+
+    return {
+      status: "failed",
+      messageCount: claimedMessages.length,
+      error: errorMessage,
+    }
+  }
+}
+
+export async function processHostawayChatMessageEvent(input: {
+  reservationId?: number | null
+  conversationId?: number | null
+  messageId?: number | null
+}): Promise<number> {
+  assertChatAvailable()
+
+  let reservationId = parseNullableInteger(input.reservationId)
+  if (!reservationId && input.conversationId) {
+    const conversation = await getHostawayConversation(input.conversationId)
+    reservationId = parseNullableInteger(conversation?.reservationId)
+  }
+  const linkedThreads = reservationId
+    ? await query<{ id: string }>(
+        `
+          SELECT id
+          FROM guest_chat_threads
+          WHERE hostaway_reservation_id = $1
+            AND status <> 'spam'
+          ORDER BY updated_at DESC
+        `,
+        [reservationId]
+      )
+    : input.messageId
+      ? await query<{ id: string }>(
+          `
+            SELECT id
+            FROM guest_chat_threads
+            WHERE hostaway_reservation_id IS NOT NULL
+              AND status IN ('waiting_on_team', 'waiting_on_guest')
+              AND updated_at >= NOW() - INTERVAL '60 days'
+            ORDER BY updated_at DESC
+            LIMIT 10
+          `
+        )
+      : { rows: [], rowCount: 0 }
+
+  let processedCount = 0
+  for (const linkedThread of linkedThreads.rows || []) {
+    const thread = await getAdminChatThread(linkedThread.id)
+    if (!thread) continue
+    await syncHostawayTeamRepliesToThread(thread)
+
+    if (input.messageId) {
+      const matchingMessage = await query(
+        `
+          SELECT 1
+          FROM guest_chat_messages
+          WHERE thread_id = $1
+            AND (
+              hostaway_message_id = $2
+              OR sms_fallback_message_id = $2
+            )
+          LIMIT 1
+        `,
+        [thread.id, input.messageId]
+      )
+      if (matchingMessage.rowCount === 0) continue
+    }
+
+    await routeUnreadHostawayRepliesToSms(thread.id)
+    processedCount += 1
+    if (!reservationId && input.messageId) break
+  }
+
+  return processedCount
 }
 
 export async function listAdminChatThreads(
@@ -476,10 +898,12 @@ export async function createGuestChatThread(
         pets,
         infants,
         last_guest_read_at,
+        webchat_opened_at,
+        webchat_last_seen_at,
         updated_at
       )
       VALUES (
-        $1, $2, $3, $4, 'waiting_on_team', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW()
+        $1, $2, $3, $4, 'waiting_on_team', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW(), NOW(), NOW()
       )
       RETURNING id
     `,
@@ -519,7 +943,12 @@ export async function createGuestChatThread(
       INSERT INTO guest_chat_messages (thread_id, author_type, body, hostaway_sync_status)
       VALUES ($1, 'system', $2, 'not_applicable')
     `,
-    [threadId, GUEST_CHAT_AUTOMATED_RESPONSE]
+    [
+      threadId,
+      isHostawaySmsFallbackEnabled()
+        ? GUEST_CHAT_AUTOMATED_RESPONSE
+        : GUEST_CHAT_WEBCHAT_ONLY_AUTOMATED_RESPONSE,
+    ]
   )
 
   await query(
@@ -912,11 +1341,7 @@ export function canConvertThreadToInquiry(thread: Pick<
     thread.status !== "spam" &&
     !!thread.guestName &&
     !!thread.guestEmail &&
-    !!thread.guestPhone &&
-    !!thread.context.listingSlug &&
-    !!thread.context.checkIn &&
-    !!thread.context.checkOut &&
-    !!thread.context.guests
+    !!thread.guestPhone
   )
 }
 
@@ -928,7 +1353,15 @@ function splitGuestName(name: string) {
   return { firstName, lastName }
 }
 
-function buildInquiryMessage(thread: GuestChatThreadDetail): string {
+function buildInquiryMessage(
+  thread: GuestChatThreadDetail,
+  routing: {
+    cabinName: string
+    datesUnspecified: boolean
+    hostawayCheckIn: string
+    hostawayCheckOut: string
+  }
+): string {
   const guestMessages = thread.messages
     .filter((message) => message.authorType === "guest")
     .map((message) => message.body.trim())
@@ -939,11 +1372,16 @@ function buildInquiryMessage(thread: GuestChatThreadDetail): string {
     `Website chat inquiry from ${thread.guestName}.`,
     thread.context.cabinName || thread.context.listingSlug
       ? `Cabin: ${thread.context.cabinName || thread.context.listingSlug}`
-      : null,
+      : `Routing property: ${routing.cabinName} (system-assigned; guest did not select a property)`,
     thread.context.checkIn && thread.context.checkOut
       ? `Stay dates: ${thread.context.checkIn} to ${thread.context.checkOut}`
+      : routing.datesUnspecified
+        ? "Stay dates: Not provided"
+        : null,
+    routing.datesUnspecified
+      ? `Hostaway routing dates: ${routing.hostawayCheckIn} to ${routing.hostawayCheckOut} (placeholder only; guest did not request these dates)`
       : null,
-    thread.context.guests ? `Guests: ${thread.context.guests}` : null,
+    thread.context.guests ? `Guests: ${thread.context.guests}` : "Guests: Not provided",
     thread.context.sourcePath ? `Source page: ${thread.context.sourcePath}` : null,
     `Intent: ${thread.intent.replace(/_/g, " ")}`,
   ].filter(Boolean)
@@ -991,44 +1429,104 @@ export async function convertThreadToInquiry(
   }
 
   if (!canConvertThreadToInquiry(eligibleThread)) {
-    throw new Error("Thread is missing required booking details for Hostaway conversion")
+    throw new Error("Thread is missing required guest contact details for Hostaway conversion")
   }
 
-  const listingSlug = mergedContext.listingSlug as string
+  const listingSlug = mergedContext.listingSlug || GENERAL_INQUIRY_LISTING_SLUG
   const listingId = getListingIdBySlug(listingSlug)
   if (!listingId) {
     throw new Error(`Listing not found for slug: ${listingSlug}`)
   }
 
   const cabin = getCabinBySlugSync(listingSlug)
+  const datesUnspecified = !(mergedContext.checkIn && mergedContext.checkOut)
+  const hostawayDates = datesUnspecified
+    ? await getNearestAvailableInquiryDates(listingId)
+    : {
+        checkIn: mergedContext.checkIn as string,
+        checkOut: mergedContext.checkOut as string,
+      }
   const { firstName, lastName } = splitGuestName(existingThread.guestName)
 
-  const inquiryMessage = buildInquiryMessage({
-    ...existingThread,
-    guestPhone,
-    context: {
-      ...mergedContext,
-      cabinName: mergedContext.cabinName || cabin?.name || null,
+  const inquiryMessage = buildInquiryMessage(
+    {
+      ...existingThread,
+      guestPhone,
+      context: {
+        ...mergedContext,
+        cabinName: mergedContext.listingSlug
+          ? mergedContext.cabinName || cabin?.name || null
+          : mergedContext.cabinName,
+      },
     },
-  })
+    {
+      cabinName: cabin?.name || listingSlug,
+      datesUnspecified,
+      hostawayCheckIn: hostawayDates.checkIn,
+      hostawayCheckOut: hostawayDates.checkOut,
+    }
+  )
 
-  const inquiry = await createInquiry({
-    listingId,
-    checkIn: mergedContext.checkIn as string,
-    checkOut: mergedContext.checkOut as string,
-    guests: mergedContext.guests as number,
-    adults: mergedContext.guests as number,
-    pets: mergedContext.pets ?? undefined,
-    infants: mergedContext.infants ?? undefined,
-    guestInfo: {
-      firstName,
-      lastName,
-      email: existingThread.guestEmail,
-      phone: guestPhone as string,
-      country: "US",
-    },
-    message: inquiryMessage,
-  })
+  const linkClaim = await query<{ id: string }>(
+    `
+      UPDATE guest_chat_threads
+      SET hostaway_link_status = 'linking',
+          hostaway_link_attempted_at = NOW(),
+          hostaway_link_error = NULL
+      WHERE id = $1
+        AND hostaway_reservation_id IS NULL
+        AND (
+          hostaway_link_status IN ('pending', 'failed')
+          OR (
+            hostaway_link_status = 'linking'
+            AND hostaway_link_attempted_at < NOW() - INTERVAL '5 minutes'
+          )
+        )
+      RETURNING id
+    `,
+    [threadId]
+  )
+
+  if (linkClaim.rowCount !== 1) {
+    const currentThread = await getAdminChatThread(threadId)
+    if (currentThread?.hostawayReservationId) {
+      return currentThread
+    }
+    throw new Error("Thread is already being linked to Hostaway")
+  }
+
+  let inquiry: Awaited<ReturnType<typeof createInquiry>>
+  try {
+    inquiry = await createInquiry({
+      listingId,
+      checkIn: hostawayDates.checkIn,
+      checkOut: hostawayDates.checkOut,
+      guests: mergedContext.guests || undefined,
+      adults: mergedContext.guests || undefined,
+      pets: mergedContext.pets ?? undefined,
+      infants: mergedContext.infants ?? undefined,
+      guestInfo: {
+        firstName,
+        lastName,
+        email: existingThread.guestEmail,
+        phone: guestPhone as string,
+        country: "US",
+      },
+      message: inquiryMessage,
+    })
+  } catch (error: any) {
+    await query(
+      `
+        UPDATE guest_chat_threads
+        SET hostaway_link_status = 'failed',
+            hostaway_link_error = $2
+        WHERE id = $1
+          AND hostaway_reservation_id IS NULL
+      `,
+      [threadId, error?.message || "Failed to create Hostaway inquiry"]
+    ).catch(() => {})
+    throw error
+  }
 
   const reservationId =
     inquiry.id || parseNullableInteger(inquiry.hostawayReservationId) || null
@@ -1040,18 +1538,12 @@ export async function convertThreadToInquiry(
 
   await query(
     `
-      INSERT INTO guest_chat_messages (
-        thread_id,
-        author_type,
-        body,
-        hostaway_sync_status
-      )
-      VALUES ($1, 'system', $2, 'not_applicable')
+      UPDATE guest_chat_threads
+      SET hostaway_link_status = 'linked',
+          hostaway_link_error = NULL
+      WHERE id = $1
     `,
-    [
-      threadId,
-      `Conversation linked to Hostaway inquiry ${reservationId ?? inquiry.hostawayReservationId}.`,
-    ]
+    [threadId]
   )
 
   const updatedThread = await getAdminChatThread(threadId)

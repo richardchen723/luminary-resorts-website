@@ -45,6 +45,8 @@ STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
 ```
 HOSTAWAY_CLIENT_ID=your_hostaway_client_id
 HOSTAWAY_CLIENT_SECRET=your_hostaway_client_secret
+HOSTAWAY_WEBHOOK_LOGIN=choose_a_webhook_login
+HOSTAWAY_WEBHOOK_PASSWORD=choose_a_strong_webhook_password
 ```
 
 **Option 2: Pre-generated Access Token (Alternative)**

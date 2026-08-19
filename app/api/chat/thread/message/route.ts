@@ -1,9 +1,10 @@
 import { cookies } from "next/headers"
-import { NextRequest, NextResponse } from "next/server"
+import { after, NextRequest, NextResponse } from "next/server"
 import {
   CHAT_UNAVAILABLE_ERROR,
   appendGuestMessageToThread,
   appendGuestChatMessageSchema,
+  convertThreadToInquiry,
 } from "@/lib/chat"
 import {
   GUEST_CHAT_THREAD_ID_COOKIE,
@@ -48,6 +49,16 @@ export async function POST(request: NextRequest) {
 
     const body = appendGuestChatMessageSchema.parse(await request.json())
     const thread = await appendGuestMessageToThread(threadId, guestToken, body)
+
+    if (!thread.hostawayReservationId && thread.canConvertToInquiry) {
+      after(async () => {
+        try {
+          await convertThreadToInquiry(thread.id)
+        } catch (conversionError) {
+          console.error("Failed to link website chat to Hostaway after guest reply:", conversionError)
+        }
+      })
+    }
 
     return NextResponse.json({ thread })
   } catch (error: any) {

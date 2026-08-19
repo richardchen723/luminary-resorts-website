@@ -236,10 +236,10 @@ export async function createBooking(bookingData: any): Promise<any> {
  */
 export async function createInquiry(inquiryData: {
   listingId: number
-  checkIn: string // YYYY-MM-DD
-  checkOut: string // YYYY-MM-DD
-  guests: number
-  adults: number
+  checkIn?: string // YYYY-MM-DD
+  checkOut?: string // YYYY-MM-DD
+  guests?: number
+  adults?: number
   pets?: number
   infants?: number
   guestInfo: {
@@ -291,14 +291,18 @@ export async function createInquiry(inquiryData: {
 
     const normalizedPhone = normalizePhoneNumber(inquiryData.guestInfo.phone)
 
+    const dateFields = resolveHostawayInquiryDates({
+      checkIn: inquiryData.checkIn,
+      checkOut: inquiryData.checkOut,
+    })
+
     // Build inquiry payload
     const inquiryPayload: any = {
       channelId: 2000, // Direct booking channel
       listingMapId,
-      arrivalDate: inquiryData.checkIn,
-      departureDate: inquiryData.checkOut,
-      numberOfGuests: inquiryData.guests,
-      adults: inquiryData.adults,
+      ...dateFields,
+      ...(inquiryData.guests ? { numberOfGuests: inquiryData.guests } : {}),
+      ...(inquiryData.adults ? { adults: inquiryData.adults } : {}),
       children: null,
       infants: inquiryData.infants || null,
       pets: inquiryData.pets || null,
@@ -391,11 +395,95 @@ export async function createInquiry(inquiryData: {
   }
 }
 
+export function resolveHostawayInquiryDates(
+  input: {
+    checkIn?: string
+    checkOut?: string
+  }
+): { arrivalDate: string; departureDate: string; isDatesUnspecified: 0 } {
+  if (!input.checkIn || !input.checkOut) {
+    throw new Error("Hostaway inquiry routing dates are required")
+  }
+
+  return {
+    arrivalDate: input.checkIn,
+    departureDate: input.checkOut,
+    isDatesUnspecified: 0,
+  }
+}
+
+function addUtcDays(date: string, days: number): string {
+  const value = new Date(`${date}T00:00:00.000Z`)
+  value.setUTCDate(value.getUTCDate() + days)
+  return value.toISOString().slice(0, 10)
+}
+
+function isAvailableCalendarDay(entry?: HostawayCalendarResponse[string]): boolean {
+  if (!entry) return false
+  if (entry.isAvailable !== undefined) return Number(entry.isAvailable) === 1
+  if (entry.available !== undefined) return Number(entry.available) === 1
+  return entry.status?.toLowerCase() === "available"
+}
+
+export function selectNearestAvailableInquiryDates(
+  calendar: HostawayCalendarResponse,
+  firstPossibleCheckIn: string
+): { checkIn: string; checkOut: string } | null {
+  const candidateDates = Object.keys(calendar)
+    .filter((date) => date >= firstPossibleCheckIn)
+    .sort()
+
+  for (const checkIn of candidateDates) {
+    const entry = calendar[checkIn]
+    if (!isAvailableCalendarDay(entry) || Number(entry.closedOnArrival) === 1) continue
+
+    const minimumStay = Math.max(Number(entry.minimumStay) || 1, 1)
+    let stayIsAvailable = true
+    for (let night = 0; night < minimumStay; night += 1) {
+      if (!isAvailableCalendarDay(calendar[addUtcDays(checkIn, night)])) {
+        stayIsAvailable = false
+        break
+      }
+    }
+    if (!stayIsAvailable) continue
+
+    return {
+      checkIn,
+      checkOut: addUtcDays(checkIn, minimumStay),
+    }
+  }
+
+  return null
+}
+
+export async function getNearestAvailableInquiryDates(
+  listingId: number,
+  now = new Date()
+): Promise<{ checkIn: string; checkOut: string }> {
+  const today = now.toISOString().slice(0, 10)
+  const firstPossibleCheckIn = addUtcDays(today, 1)
+  const calendar = await getCalendarAvailability(
+    listingId,
+    firstPossibleCheckIn,
+    addUtcDays(firstPossibleCheckIn, 180)
+  )
+  const dates = selectNearestAvailableInquiryDates(calendar, firstPossibleCheckIn)
+
+  if (!dates) {
+    throw new Error("No available Dew dates were found for Hostaway inquiry routing")
+  }
+
+  return dates
+}
+
 export interface HostawayConversationMessageSummary {
   id: number
+  reservationId?: number | string
+  conversationId?: number
   communicationType?: string
   status?: string
   isIncoming?: number
+  isSeen?: number
   body?: string
 }
 
@@ -423,6 +511,17 @@ export async function getConversationForReservation(
     ) ||
     conversations[0] ||
     null
+  )
+}
+
+/** Retrieve a Hostaway conversation when a webhook supplies its conversation ID. */
+export async function getHostawayConversation(
+  conversationId: number
+): Promise<HostawayConversationSummary | null> {
+  if (!Number.isInteger(conversationId) || conversationId <= 0) return null
+  return makeRequest<HostawayConversationSummary>(
+    `/conversations/${conversationId}?includeResources=1`,
+    { method: "GET" }
   )
 }
 
