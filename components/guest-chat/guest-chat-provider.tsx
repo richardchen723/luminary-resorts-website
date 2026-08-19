@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -20,6 +20,7 @@ type OpenTextInquiryOptions = {
 type GuestChatContextValue = {
   openTextInquiry: (options?: OpenTextInquiryOptions) => void
   textMessagingEnabled: boolean
+  setLauncherSuppressed: (source: string, suppressed: boolean) => void
 }
 
 const GuestChatContextObject = createContext<GuestChatContextValue | null>(null)
@@ -59,6 +60,19 @@ export function GuestChatProvider({
   const [isTextInquiryOpen, setIsTextInquiryOpen] = useState(false)
   const [textInquiryContext, setTextInquiryContext] = useState<Partial<GuestChatContext> | null>(null)
   const [legacyThread, setLegacyThread] = useState<GuestChatThreadDetail | null>(null)
+  const [launcherSuppressions, setLauncherSuppressions] = useState<Set<string>>(() => new Set())
+
+  const setLauncherSuppressed = useCallback((source: string, suppressed: boolean) => {
+    setLauncherSuppressions((current) => {
+      const next = new Set(current)
+      if (suppressed) {
+        next.add(source)
+      } else {
+        next.delete(source)
+      }
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     if (isAdminPath) return
@@ -105,26 +119,28 @@ export function GuestChatProvider({
   }
 
   const showTextMessaging = !isAdminPath && textMessagingEnabled
+  const isLauncherSuppressed = launcherSuppressions.size > 0
 
   return (
-    <GuestChatContextObject.Provider value={{ openTextInquiry, textMessagingEnabled }}>
+    <GuestChatContextObject.Provider value={{ openTextInquiry, textMessagingEnabled, setLauncherSuppressed }}>
       {children}
 
       {showTextMessaging && (
         <>
-          {!isTextInquiryOpen && (
-            <div className="fixed bottom-24 right-4 z-50 lg:bottom-6 lg:right-6">
+          {!isTextInquiryOpen && !isLauncherSuppressed && (
+            <div className="fixed right-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-50 lg:right-6 lg:bottom-6">
               <Button
                 type="button"
                 size="lg"
-                className="relative h-auto rounded-[1.75rem] border border-primary/15 px-6 py-4 shadow-2xl"
+                className="relative h-12 w-12 rounded-full border border-primary/15 p-0 shadow-2xl sm:h-auto sm:w-auto sm:rounded-[1.75rem] sm:px-6 sm:py-4"
                 onClick={() => openTextInquiry()}
+                aria-label={legacyThread ? "Welcome back to text support" : "Text with us"}
               >
                 <span className="flex items-center gap-3">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-foreground/14">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-foreground/14 sm:h-11 sm:w-11">
                     <MessageCircle className="h-5 w-5" />
                   </span>
-                  <span className="flex flex-col items-start text-left leading-none">
+                  <span className="hidden flex-col items-start text-left leading-none sm:flex">
                     <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary-foreground/75">
                       {legacyThread ? "Welcome back" : "Questions?"}
                     </span>

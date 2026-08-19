@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Calendar as CalendarIcon, Users, Loader2, DollarSign, AlertCircle, X, XCircle } from "lucide-react"
+import { Calendar as CalendarIcon, Loader2, DollarSign, AlertCircle, X, XCircle } from "lucide-react"
 import { getListingIdBySlug } from "@/lib/listing-map"
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -13,12 +13,26 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { format, isSameDay, addMonths, startOfMonth, endOfMonth, isBefore, startOfDay, eachDayOfInterval, parseISO } from "date-fns"
 import type { DateRange } from "react-day-picker"
 import type { HostawayCalendarEntry } from "@/types/hostaway"
-import { calculateCalendarStatus, buildNextCheckInMap } from "@/lib/calendar-status"
+import {
+  calculateCalendarStatus,
+  buildNextCheckInMap,
+  findNextAvailableCheckInDate,
+  getCalendarDisabledReason,
+} from "@/lib/calendar-status"
 import { cn } from "@/lib/utils"
 import { roundToTwoDecimals } from "@/lib/utils"
 import { DayButton } from "react-day-picker"
 import { useGuestChat } from "@/components/guest-chat/guest-chat-provider"
-import { trackSelectDates, trackViewPricing, trackStartCheckout } from "@/lib/analytics"
+import {
+  trackBookingCalendarOpened,
+  trackNextAvailableViewed,
+  trackSelectDates,
+  trackStartCheckout,
+  trackUnavailableDateTapped,
+  trackViewPricing,
+} from "@/lib/analytics"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { OPEN_BOOKING_CALENDAR_EVENT } from "@/lib/booking-events"
 
 interface CabinBookingWidgetProps {
   cabinSlug: string
@@ -28,7 +42,8 @@ interface CabinBookingWidgetProps {
 export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWidgetProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const { openTextInquiry, textMessagingEnabled } = useGuestChat()
+  const isMobile = useIsMobile()
+  const { openTextInquiry, textMessagingEnabled, setLauncherSuppressed } = useGuestChat()
   
   // Get listing ID from slug
   const listingId = getListingIdBySlug(cabinSlug)
@@ -48,6 +63,39 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
   const [isSelectingNewRange, setIsSelectingNewRange] = useState(false) // Track if we're starting a fresh selection
   const [previousSelection, setPreviousSelection] = useState<{checkIn: string, checkOut: string} | null>(null) // Track previous complete selection
   const [isCalendarOpen, setIsCalendarOpen] = useState(false) // Control calendar popover visibility
+  const [calendarFeedback, setCalendarFeedback] = useState<string | null>(null)
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const parsedInitialCheckIn = initialCheckIn ? parseISO(initialCheckIn) : null
+    return parsedInitialCheckIn && !Number.isNaN(parsedInitialCheckIn.getTime())
+      ? startOfMonth(parsedInitialCheckIn)
+      : startOfMonth(new Date())
+  })
+
+  useEffect(() => {
+    let openTimer: number | null = null
+    const openCalendar = () => {
+      document.getElementById("booking-widget")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      })
+      openTimer = window.setTimeout(() => {
+        setCalendarFeedback(null)
+        setIsCalendarOpen(true)
+      }, 250)
+    }
+
+    window.addEventListener(OPEN_BOOKING_CALENDAR_EVENT, openCalendar)
+    return () => {
+      window.removeEventListener(OPEN_BOOKING_CALENDAR_EVENT, openCalendar)
+      if (openTimer) window.clearTimeout(openTimer)
+    }
+  }, [])
+
+  useEffect(() => {
+    const suppressionKey = `booking-calendar:${cabinSlug}`
+    setLauncherSuppressed(suppressionKey, isCalendarOpen)
+    return () => setLauncherSuppressed(suppressionKey, false)
+  }, [cabinSlug, isCalendarOpen, setLauncherSuppressed])
   
   // Update previousSelection when we have a complete selection
   useEffect(() => {
@@ -633,9 +681,28 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     return statuses
   }, [calendarData, checkIn, checkOut, nextCheckInMap])
 
-  // Custom DayButton component with three-state rendering
-  // Extends the default CalendarDayButton with status-based styling
-  // Shows visual distinctions: booked dates (crossed out), ineligible dates (grayed), with tooltips
+  const getDateInfo = useCallback((date: Date) => {
+    const dateStr = format(date, "yyyy-MM-dd")
+    const cachedDateInfo = dateStatuses[dateStr]
+    if (cachedDateInfo) return cachedDateInfo
+
+    const checkInDate = checkIn && !checkOut ? parseISO(checkIn) : null
+    return calculateCalendarStatus(date, calendarData, checkInDate, nextCheckInMap)
+  }, [calendarData, checkIn, checkOut, dateStatuses, nextCheckInMap])
+
+  const getDisabledReason = useCallback((date: Date) => {
+    const checkInDate = checkIn ? parseISO(checkIn) : null
+    const checkOutDate = checkOut ? parseISO(checkOut) : null
+    return getCalendarDisabledReason(date, getDateInfo(date), {
+      checkInDate,
+      checkOutDate,
+      nextCheckInMap,
+    })
+  }, [checkIn, checkOut, getDateInfo, nextCheckInMap])
+
+  // Custom DayButton component with three-state rendering. Unavailable days
+  // keep their visual treatment, but a transparent touch target now explains
+  // why the date cannot be selected instead of producing a dead click.
   const CustomDayButton = useCallback((props: React.ComponentProps<typeof DayButton>) => {
     const { day, modifiers, className, ...restProps } = props
     
@@ -646,14 +713,8 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
       return <CalendarDayButton {...props} />
     }
     
-    const dateStr = format(date, "yyyy-MM-dd")
-    let dateInfo = dateStatuses[dateStr]
-    
-    // If not in cache (outside visible range), calculate on-demand
-    if (!dateInfo) {
-      const checkInDate = (checkIn && !checkOut) ? parseISO(checkIn) : null
-      dateInfo = calculateCalendarStatus(date, calendarData, checkInDate, nextCheckInMap)
-    }
+    const dateInfo = getDateInfo(date)
+    const disabledReason = getDisabledReason(date)
 
     // Check if date is in the past
     const today = startOfDay(new Date())
@@ -664,9 +725,6 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
     // Determine if date is booked (solid-block) vs ineligible due to check-in/checkout rules
     const isBooked = dateInfo?.status === "solid-block"
     const isIneligible = (dateInfo?.status === "checkout-only" && !checkIn) || isMinStayBlocked
-    // Only show tooltip for ineligible dates (grayed out), not for booked or open dates
-    const hasUnavailableReason = isIneligible && dateInfo?.unavailableReason
-
     // Determine additional styling based on status
     // Booked dates: grayed out with lower opacity
     // Ineligible dates: grayed out but slightly higher opacity
@@ -705,67 +763,44 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
       />
     )
 
-    // Wrap button in container for X icon overlay (for booked dates and past dates)
     const shouldShowXIcon = isBooked || isPastDate
-    
-    // If we need to show tooltip for ineligible dates, wrap the button element first
-    // Note: Disabled buttons don't trigger hover events, so we need to wrap in a span
-    // Then add X icon overlay if needed
-    if (hasUnavailableReason) {
-      // Wrap button in span for tooltip to work with disabled buttons
-      // The span receives hover events even when the button inside is disabled
-      const buttonWrapper = (
-        <span className="inline-flex w-full h-full" style={{ pointerEvents: 'auto' }}>
-          {buttonElement}
-        </span>
-      )
-      
-      const tooltipWrappedButton = (
+
+    if (disabledReason) {
+      return (
         <Tooltip delayDuration={200}>
           <TooltipTrigger asChild>
-            {buttonWrapper}
+            <span className="relative inline-flex h-full w-full">
+              {buttonElement}
+              {shouldShowXIcon && (
+                <X
+                  className="pointer-events-none absolute inset-0 z-10 m-auto h-4 w-4 text-muted-foreground opacity-70"
+                  strokeWidth={2.5}
+                  aria-hidden="true"
+                />
+              )}
+              <button
+                type="button"
+                tabIndex={-1}
+                className="absolute inset-0 z-20 rounded-md"
+                aria-label={`${format(date, "MMMM d")}: ${disabledReason}`}
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  setCalendarFeedback(disabledReason)
+                  trackUnavailableDateTapped(cabinSlug, disabledReason)
+                }}
+              />
+            </span>
           </TooltipTrigger>
           <TooltipContent side="top" sideOffset={5} className="z-[100]">
-            <p>{dateInfo.unavailableReason}</p>
+            <p>{disabledReason}</p>
           </TooltipContent>
         </Tooltip>
-      )
-      
-      // If we also need X icon, wrap the tooltip-wrapped button
-      if (shouldShowXIcon) {
-        return (
-          <div className="relative w-full h-full">
-            {tooltipWrappedButton}
-            {/* Show strikethrough (X icon) for booked dates and past dates - positioned absolutely over the button */}
-            <X 
-              className="absolute inset-0 m-auto w-4 h-4 text-muted-foreground opacity-70 pointer-events-none z-10" 
-              strokeWidth={2.5} 
-              aria-hidden="true"
-            />
-          </div>
-        )
-      }
-      
-      return tooltipWrappedButton
-    }
-    
-    // No tooltip needed, just add X icon if needed
-    if (shouldShowXIcon) {
-      return (
-        <div className="relative w-full h-full">
-          {buttonElement}
-          {/* Show strikethrough (X icon) for booked dates and past dates - positioned absolutely over the button */}
-          <X 
-            className="absolute inset-0 m-auto w-4 h-4 text-muted-foreground opacity-70 pointer-events-none z-10" 
-            strokeWidth={2.5} 
-            aria-hidden="true"
-          />
-        </div>
       )
     }
     
     return buttonElement
-  }, [dateStatuses, checkIn, checkOut, calendarData, nextCheckInMap])
+  }, [cabinSlug, checkIn, checkOut, getDateInfo, getDisabledReason])
 
   // Set minimum date to today
   const today = new Date().toISOString().split("T")[0]
@@ -774,6 +809,17 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
   const calendarFromDate = useMemo(() => {
     return startOfDay(new Date())
   }, [])
+
+  const nextAvailableCheckIn = useMemo(
+    () => findNextAvailableCheckInDate(calendarData, calendarFromDate),
+    [calendarData, calendarFromDate]
+  )
+
+  const calendarInstruction = calendarFeedback
+    ? calendarFeedback
+    : checkIn && !checkOut
+    ? `Now choose a checkout date after ${format(parseISO(checkIn), "MMM d")}.`
+    : "Choose an available check-in date, then choose your checkout date."
 
   const hasSelectedDates = Boolean(checkIn && checkOut)
   const priceHintTitle = !hasSelectedDates
@@ -804,7 +850,16 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
           <label className="block text-sm font-medium mb-2">
             Select Dates
           </label>
-          <Popover>
+          <Popover
+            open={isCalendarOpen}
+            onOpenChange={(open) => {
+              setIsCalendarOpen(open)
+              if (open) {
+                setCalendarFeedback(null)
+                trackBookingCalendarOpened("booking_widget")
+              }
+            }}
+          >
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
@@ -820,11 +875,16 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start" side="bottom">
+            <PopoverContent
+              className="max-h-[min(80vh,42rem)] w-auto overflow-y-auto p-0"
+              align="start"
+              side="bottom"
+            >
               <Calendar
                 mode="range"
                 fromDate={calendarFromDate} // Prevent navigation to past months and block dates before today
-                defaultMonth={new Date()} // Start calendar on current month
+                month={calendarMonth}
+                onMonthChange={setCalendarMonth}
                 selected={
                   checkIn && checkOut
                     ? {
@@ -838,6 +898,7 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                     : undefined
                 }
                 onSelect={(range) => {
+                  setCalendarFeedback(null)
                   if (!range?.from) {
                     // Selection cleared
                     setCheckIn("")
@@ -905,93 +966,60 @@ export function CabinBookingWidget({ cabinSlug, className = "" }: CabinBookingWi
                   }
                 }}
                 disabled={(date) => {
-                  // CRITICAL: Block all dates before today - this must be the first check
-                  // Use startOfDay to normalize to midnight and isBefore for reliable comparison
-                  if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
-                    return true // Invalid dates are disabled
-                  }
-                  
-                  const today = startOfDay(new Date())
-                  const dateToCheck = startOfDay(date)
-                  
-                  // Block dates before today (not including today)
-                  // This check must happen first before any other logic
-                  if (isBefore(dateToCheck, today)) {
+                  if (!date || !(date instanceof Date) || Number.isNaN(date.getTime())) {
                     return true
                   }
-                  
-                  // If check-in is selected, block all dates on or before it
-                  // This ensures checkout date must be after check-in date
-                  if (checkIn) {
-                    const checkInDateObj = parseISO(checkIn)
-                    // Block dates on or before check-in (use <= to include the check-in date itself)
-                    if (date <= checkInDateObj) {
-                      return true
-                    }
-                    
-                    // Block all dates beyond the next check-in date
-                    // When check-in is selected, checkout must be before next guest checks in
-                    if (!checkOut) {
-                      const checkInDateStr = format(checkInDateObj, "yyyy-MM-dd")
-                      const nextCheckIn = nextCheckInMap[checkInDateStr]
-                      
-                      if (nextCheckIn) {
-                        // Block dates after the next check-in date
-                        // The next check-in date itself may be available as checkout (checkout-only)
-                        if (date > nextCheckIn) {
-                          return true
-                        }
-                      }
-                    }
-                  }
-                  
-                  // Use cached dateStatuses instead of recalculating
-                  const dateStr = format(date, "yyyy-MM-dd")
-                  let dateInfo = dateStatuses[dateStr]
-                  
-                  // If not in cache (outside visible range), calculate on-demand
-                  if (!dateInfo) {
-                    const checkInDate = (checkIn && !checkOut) ? parseISO(checkIn) : null
-                    dateInfo = calculateCalendarStatus(date, calendarData, checkInDate, nextCheckInMap)
-                  }
-                  
-                  // Solid block is always disabled
-                  if (dateInfo.status === "solid-block") {
-                    return true
-                  }
-
-                  // When selecting checkout, enforce the selected check-in's minimum stay
-                  if (checkIn && !checkOut && dateInfo.violatesSelectedMinimumStay) {
-                    return true
-                  }
-                  
-                  // Checkout-only is disabled for check-in selection
-                  // But enabled if we're selecting checkout and have a check-in (but not checkOut)
-                  if (dateInfo.status === "checkout-only") {
-                    // If both checkIn and checkOut are set, we're selecting a new check-in
-                    // So checkout-only dates should be blocked
-                    if (checkIn && checkOut) {
-                      return true
-                    }
-                    // If we have a check-in but no checkOut, allow this date as checkout
-                    // (only if it's after check-in, which is already checked above)
-                    if (checkIn) {
-                      // Date is already validated to be after check-in above, so allow it
-                      return false
-                    }
-                    // No check-in selected, disable for check-in selection
-                    return true
-                  }
-                  
-                  // Open dates are always enabled
-                  return false
+                  return Boolean(getDisabledReason(date))
                 }}
                 components={{
                   DayButton: CustomDayButton,
                 }}
-                numberOfMonths={2}
+                numberOfMonths={isMobile ? 1 : 2}
                 initialFocus
               />
+              <div className="space-y-2 border-t px-3 py-3">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-primary" aria-hidden="true" />
+                    Available
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-muted ring-1 ring-border" aria-hidden="true" />
+                    Booked
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-muted/40 ring-1 ring-border" aria-hidden="true" />
+                    Checkout only
+                  </span>
+                </div>
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className={cn(
+                    "text-xs leading-relaxed",
+                    calendarFeedback ? "font-medium text-foreground" : "text-muted-foreground"
+                  )}
+                >
+                  {isLoadingCalendar ? "Loading live availability…" : calendarInstruction}
+                </p>
+                {!checkIn && nextAvailableCheckIn && !isLoadingCalendar && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto px-0 py-1 text-xs text-primary hover:bg-transparent hover:text-primary/80"
+                    onClick={() => {
+                      setCalendarMonth(startOfMonth(nextAvailableCheckIn))
+                      setCalendarFeedback(
+                        `The next available check-in is ${format(nextAvailableCheckIn, "MMM d")}.`
+                      )
+                      trackNextAvailableViewed(cabinSlug)
+                    }}
+                  >
+                    Next available check-in: {format(nextAvailableCheckIn, "MMM d")}
+                  </Button>
+                )}
+              </div>
               {(checkIn || checkOut) && (
                 <div className="border-t p-3">
                   <Button

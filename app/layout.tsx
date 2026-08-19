@@ -4,6 +4,7 @@ import { Quicksand, Dancing_Script } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { GA4 } from "@/components/ga4"
 import { GuestChatProvider } from "@/components/guest-chat/guest-chat-provider"
+import { MicrosoftClarity } from "@/components/microsoft-clarity"
 import "./globals.css"
 
 const quicksand = Quicksand({
@@ -63,11 +64,13 @@ export default function RootLayout({
       <head>
         {/* Preconnect to external domains for faster resource loading */}
         <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="preconnect" href="https://www.clarity.ms" />
         <link rel="preconnect" href="https://hostaway-platform.s3.us-west-2.amazonaws.com" />
         <link rel="dns-prefetch" href="https://a0.muscache.com" />
       </head>
       <body className={`${quicksand.variable} ${dancingScript.variable} font-sans antialiased`}>
         <GA4 />
+        <MicrosoftClarity />
         <GuestChatProvider
           textMessagingEnabled={
             process.env.HOSTAWAY_SMS_ENABLED !== "false" &&

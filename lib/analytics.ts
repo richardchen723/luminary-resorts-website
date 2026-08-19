@@ -7,6 +7,7 @@ declare global {
       config?: Record<string, any>
     ) => void
     dataLayer?: any[]
+    clarity?: (command: "event", value: string) => void
   }
 }
 
@@ -14,6 +15,9 @@ declare global {
 export function trackSEOEvent(eventName: string, params?: Record<string, any>) {
   if (typeof window !== 'undefined' && window.gtag) {
     window.gtag('event', eventName, params)
+  }
+  if (typeof window !== 'undefined' && window.clarity) {
+    window.clarity('event', eventName)
   }
 }
 
@@ -43,6 +47,23 @@ export function trackStartCheckout(cabinSlug: string, total: number) {
   trackSEOEvent('start_checkout', {
     cabin_slug: cabinSlug,
     total: total,
+  })
+}
+
+export function trackBookingCalendarOpened(source: "mobile_sticky_bar" | "booking_widget") {
+  trackSEOEvent('booking_calendar_opened', { source })
+}
+
+export function trackUnavailableDateTapped(cabinSlug: string, reason: string) {
+  trackSEOEvent('calendar_unavailable_date_tapped', {
+    cabin_slug: cabinSlug,
+    reason,
+  })
+}
+
+export function trackNextAvailableViewed(cabinSlug: string) {
+  trackSEOEvent('calendar_next_available_viewed', {
+    cabin_slug: cabinSlug,
   })
 }
 

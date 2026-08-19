@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import { X, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useGuestChat } from "@/components/guest-chat/guest-chat-provider"
 
 interface ImageGalleryProps {
   images: string[]
@@ -13,6 +14,14 @@ interface ImageGalleryProps {
 
 export function ImageGallery({ images, initialIndex = 0, onClose }: ImageGalleryProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
+  const { setLauncherSuppressed } = useGuestChat()
+  const pointerStart = useRef<{ x: number; y: number } | null>(null)
+  const handledSwipe = useRef(false)
+
+  useEffect(() => {
+    setLauncherSuppressed("image-gallery", true)
+    return () => setLauncherSuppressed("image-gallery", false)
+  }, [setLauncherSuppressed])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -49,12 +58,49 @@ export function ImageGallery({ images, initialIndex = 0, onClose }: ImageGallery
     }
   }
 
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    pointerStart.current = { x: event.clientX, y: event.clientY }
+    handledSwipe.current = false
+  }
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointerStart.current) return
+
+    const deltaX = event.clientX - pointerStart.current.x
+    const deltaY = event.clientY - pointerStart.current.y
+    pointerStart.current = null
+
+    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY)) return
+
+    handledSwipe.current = true
+    if (deltaX < 0) {
+      goToNext()
+    } else {
+      goToPrevious()
+    }
+  }
+
+  const handleImageClick = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    if (handledSwipe.current) {
+      handledSwipe.current = false
+      return
+    }
+    goToNext()
+  }
+
   if (images.length === 0) return null
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex touch-pan-y items-center justify-center bg-black/95 p-4"
       onClick={handleBackdropClick}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={() => {
+        pointerStart.current = null
+        handledSwipe.current = false
+      }}
     >
       {/* Close Button */}
       <Button
@@ -90,7 +136,8 @@ export function ImageGallery({ images, initialIndex = 0, onClose }: ImageGallery
             className="object-contain"
             sizes="90vw"
             priority
-            onClick={(e) => e.stopPropagation()}
+            draggable={false}
+            onClick={handleImageClick}
           />
         </div>
       </div>
@@ -112,6 +159,12 @@ export function ImageGallery({ images, initialIndex = 0, onClose }: ImageGallery
       {images.length > 1 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm">
           {currentIndex + 1} / {images.length}
+        </div>
+      )}
+
+      {images.length > 1 && (
+        <div className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1.5 text-xs text-white/90 backdrop-blur-sm md:hidden">
+          Tap or swipe for the next photo
         </div>
       )}
 

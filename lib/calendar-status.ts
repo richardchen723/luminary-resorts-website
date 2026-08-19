@@ -7,7 +7,7 @@
  * - Same-day turnover rules
  */
 
-import { format, parseISO, isAfter, isBefore, isSameDay, differenceInDays, addDays } from "date-fns"
+import { format, parseISO, isAfter, isBefore, isSameDay, differenceInDays, addDays, startOfDay } from "date-fns"
 import type { HostawayCalendarEntry, CalendarDateStatus } from "@/types/hostaway"
 
 export type { CalendarDateStatus }
@@ -23,6 +23,13 @@ export interface CalendarDateInfo {
   price: number | null
   currency: string | null
   unavailableReason: string | null // Human-readable reason why date is unavailable (for tooltips)
+}
+
+interface CalendarDisabledReasonOptions {
+  today?: Date
+  checkInDate?: Date | null
+  checkOutDate?: Date | null
+  nextCheckInMap?: Record<string, Date | null>
 }
 
 function getDateKey(date: Date | string): string {
@@ -294,6 +301,79 @@ export function calculateCalendarStatus(
     currency: "USD",
     unavailableReason: null,
   }, selectedCheckInMinimumStay, violatesSelectedMinimumStay)
+}
+
+/**
+ * Return a human-readable reason when a date cannot be selected.
+ * Keeping this logic separate from the UI ensures touch feedback and the
+ * DayPicker disabled state always agree.
+ */
+export function getCalendarDisabledReason(
+  date: Date,
+  dateInfo: CalendarDateInfo,
+  options: CalendarDisabledReasonOptions = {}
+): string | null {
+  const dateAtStartOfDay = startOfDay(date)
+  const today = startOfDay(options.today ?? new Date())
+  const checkInDate = options.checkInDate ? startOfDay(options.checkInDate) : null
+  const checkOutDate = options.checkOutDate ? startOfDay(options.checkOutDate) : null
+
+  if (isBefore(dateAtStartOfDay, today)) {
+    return "This date has already passed"
+  }
+
+  if (checkInDate && !isAfter(dateAtStartOfDay, checkInDate)) {
+    return `Choose a checkout date after ${format(checkInDate, "MMM d")}`
+  }
+
+  if (checkInDate && !checkOutDate && options.nextCheckInMap) {
+    const nextCheckIn = options.nextCheckInMap[format(checkInDate, "yyyy-MM-dd")]
+    if (nextCheckIn && isAfter(dateAtStartOfDay, startOfDay(nextCheckIn))) {
+      return `This stay must end by ${format(nextCheckIn, "MMM d")}`
+    }
+  }
+
+  if (dateInfo.status === "solid-block") {
+    return dateInfo.unavailableReason || "Fully booked"
+  }
+
+  if (dateInfo.violatesSelectedMinimumStay) {
+    return dateInfo.unavailableReason || "This stay does not meet the minimum stay"
+  }
+
+  if (dateInfo.status === "checkout-only") {
+    if (checkInDate && !checkOutDate) {
+      return null
+    }
+    return dateInfo.unavailableReason || "Available for checkout only"
+  }
+
+  return null
+}
+
+/**
+ * Find the next date represented by the Hostaway calendar that can be used as
+ * a check-in. Dates without calendar entries are intentionally ignored so the
+ * shortcut never promises availability the API has not supplied.
+ */
+export function findNextAvailableCheckInDate(
+  calendarData: Record<string, HostawayCalendarEntry>,
+  fromDate: Date = new Date()
+): Date | null {
+  const from = startOfDay(fromDate)
+  const nextCheckInMap = buildNextCheckInMap(calendarData)
+
+  for (const dateKey of Object.keys(calendarData).sort()) {
+    const date = parseISO(dateKey)
+    if (isBefore(date, from)) continue
+
+    const dateInfo = calculateCalendarStatus(date, calendarData, null, nextCheckInMap)
+    if (dateInfo.status === "open") {
+      return date
+    }
+  }
+
+  return null
 }
 
 /**
