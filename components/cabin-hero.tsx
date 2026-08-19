@@ -43,8 +43,9 @@ export function CabinHero({ image, cabinName, cabinId, subtitle, allImages }: Ca
             </p>
           )}
         </div>
-        <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-          Click to view all photos
+        <div className="pointer-events-none absolute right-4 bottom-4 rounded-full bg-black/50 px-4 py-2 text-sm text-white opacity-100 backdrop-blur-sm transition-opacity md:opacity-0 md:group-hover:opacity-100">
+          <span className="md:hidden">Tap to view all photos</span>
+          <span className="hidden md:inline">Click to view all photos</span>
         </div>
       </section>
 

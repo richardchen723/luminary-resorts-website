@@ -19,6 +19,7 @@ import { generateMetadata as generateSEOMetadata, getCabinSEO } from "@/lib/seo"
 import type { Metadata } from "next"
 import { WhyBookDirect } from "@/components/why-book-direct"
 import { PageViewTracker } from "@/components/page-view-tracker"
+import { MobileBookingBar } from "@/components/mobile-booking-bar"
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -103,7 +104,7 @@ export default async function CabinDetailPage({ params }: PageProps) {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-20 md:pb-0">
       <JsonLd data={hotelSchema} />
       <PageViewTracker cabinSlug={slug} />
       <Header />
@@ -287,7 +288,7 @@ export default async function CabinDetailPage({ params }: PageProps) {
             </div>
 
             {/* Sidebar */}
-            <div className="md:col-span-1">
+            <div id="booking-widget" className="order-first scroll-mt-24 md:order-none md:col-span-1">
               <div className="sticky top-24">
                 <Suspense fallback={<div className="p-6 bg-muted/50 rounded-lg">Loading booking widget...</div>}>
                   <CabinBookingWidget cabinSlug={cabin.slug} className="w-full" />
@@ -337,8 +338,8 @@ export default async function CabinDetailPage({ params }: PageProps) {
         </section>
       )}
 
+      <MobileBookingBar />
       <Footer />
     </div>
   )
 }
-
