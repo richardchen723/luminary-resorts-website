@@ -12,6 +12,7 @@ import {
 import { getListingIdBySlug } from "@/lib/listing-map"
 import { getCabinBySlugSync } from "@/lib/cabins"
 import { getTransporter } from "@/lib/email"
+import { labelHostawayGuestMessage } from "@/lib/hostaway-message-source"
 import { normalizeTextPhone } from "@/lib/text-inquiry"
 import {
   buildGuestChatFallbackSms,
@@ -1128,9 +1129,13 @@ async function mirrorMessageIfNeeded(
   }
 
   try {
+    const hostawayBody =
+      authorType === "guest"
+        ? labelHostawayGuestMessage(messageBody, "webchat")
+        : messageBody
     const result = await addMessageToConversation(
       thread.hostawayReservationId,
-      messageBody,
+      hostawayBody,
       authorType === "guest" ? 1 : 0
     )
 
