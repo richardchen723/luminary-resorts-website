@@ -629,7 +629,7 @@ export function AdminChatInbox({
                                 >
                                   {isGuestMessage
                                     ? selectedThread.guestName
-                                    : message.adminUserName || "Luminary"}
+                                    : message.adminUserName || "Luminary Resorts"}
                                   {" • "}
                                   {formatTimestamp(message.createdAt)}
                                 </p>
@@ -664,7 +664,8 @@ export function AdminChatInbox({
                   <div className="space-y-3 rounded-md border border-border p-4">
                     <h2 className="font-semibold text-foreground">Convert to Hostaway inquiry</h2>
                     <p className="text-sm text-muted-foreground">
-                      Use this once the thread has the stay details needed for a booking inquiry.
+                      Stay details are optional. General inquiries route to Dew with dates marked
+                      unspecified in Hostaway.
                     </p>
 
                     <div className="grid gap-3">

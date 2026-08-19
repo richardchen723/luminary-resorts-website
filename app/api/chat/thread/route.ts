@@ -1,10 +1,12 @@
 import { cookies } from "next/headers"
-import { NextRequest, NextResponse } from "next/server"
+import { after, NextRequest, NextResponse } from "next/server"
 import {
   CHAT_UNAVAILABLE_ERROR,
+  convertThreadToInquiry,
   createGuestChatThread,
   createGuestChatThreadSchema,
   getGuestChatThreadForGuest,
+  syncHostawayTeamRepliesToThread,
 } from "@/lib/chat"
 import {
   GUEST_CHAT_THREAD_ID_COOKIE,
@@ -38,11 +40,22 @@ export async function GET() {
       return NextResponse.json({ thread: null }, { status: 404 })
     }
 
-    const thread = await getGuestChatThreadForGuest(threadId, guestToken)
+    let thread = await getGuestChatThreadForGuest(threadId, guestToken)
     if (!thread) {
       const response = NextResponse.json({ thread: null }, { status: 404 })
       clearGuestChatCookies(response)
       return response
+    }
+
+    if (thread.hostawayReservationId) {
+      try {
+        const importedCount = await syncHostawayTeamRepliesToThread(thread)
+        if (importedCount > 0) {
+          thread = await getGuestChatThreadForGuest(threadId, guestToken)
+        }
+      } catch (syncError) {
+        console.error("Failed to sync Hostaway replies into website chat:", syncError)
+      }
     }
 
     return NextResponse.json({ thread })
@@ -57,6 +70,17 @@ export async function POST(request: NextRequest) {
     const { thread, guestToken } = await createGuestChatThread(body)
     const response = NextResponse.json({ thread }, { status: 201 })
     setGuestChatCookies(response, thread.id, guestToken)
+
+    if (thread.canConvertToInquiry) {
+      after(async () => {
+        try {
+          await convertThreadToInquiry(thread.id)
+        } catch (conversionError) {
+          console.error("Failed to link website chat to Hostaway:", conversionError)
+        }
+      })
+    }
+
     return response
   } catch (error: any) {
     return handleChatError(error)

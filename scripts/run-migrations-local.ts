@@ -19,6 +19,8 @@ const MIGRATION_003 = readFileSync(join(process.cwd(), 'lib/db/migrations/003_af
 const MIGRATION_004 = readFileSync(join(process.cwd(), 'lib/db/migrations/004_guest_chat.sql'), 'utf-8')
 const MIGRATION_005 = readFileSync(join(process.cwd(), 'lib/db/migrations/005_coupon_codes.sql'), 'utf-8')
 const MIGRATION_006 = readFileSync(join(process.cwd(), 'lib/db/migrations/006_text_inquiries.sql'), 'utf-8')
+const MIGRATION_007 = readFileSync(join(process.cwd(), 'lib/db/migrations/007_chat_sms_fallback.sql'), 'utf-8')
+const MIGRATION_008 = readFileSync(join(process.cwd(), 'lib/db/migrations/008_hostaway_chat_linking.sql'), 'utf-8')
 
 async function runMigrationStatements(label: string, sql: string) {
   const statements = splitSqlStatements(sql)
@@ -105,6 +107,26 @@ async function runMigrations() {
     console.log('✅ Migration 006 completed successfully\n')
   } catch (error: any) {
     console.error('❌ Migration 006 failed:', error.message)
+    throw error
+  }
+
+  // Run Migration 007
+  try {
+    console.log('📦 Running Migration 007: Chat SMS Fallback...')
+    await runMigrationStatements('Migration 007', MIGRATION_007)
+    console.log('✅ Migration 007 completed successfully\n')
+  } catch (error: any) {
+    console.error('❌ Migration 007 failed:', error.message)
+    throw error
+  }
+
+  // Run Migration 008
+  try {
+    console.log('📦 Running Migration 008: Hostaway Chat Linking...')
+    await runMigrationStatements('Migration 008', MIGRATION_008)
+    console.log('✅ Migration 008 completed successfully\n')
+  } catch (error: any) {
+    console.error('❌ Migration 008 failed:', error.message)
     throw error
   }
 
