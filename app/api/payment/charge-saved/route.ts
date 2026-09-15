@@ -54,6 +54,9 @@ export async function POST(request: Request) {
       currency: booking.currency.toLowerCase() || "usd",
       metadata: {
         bookingId: booking.id,
+        ...(booking.hostaway_reservation_id
+          ? { hostawayReservationId: String(booking.hostaway_reservation_id) }
+          : {}),
         originalPaymentIntentId: booking.stripe_payment_intent_id,
         reason: reason || "additional_payment",
         slug: booking.slug,

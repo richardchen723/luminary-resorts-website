@@ -5,7 +5,11 @@
 
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { getPaymentIntent, updatePaymentIntentMetadata } from "@/lib/stripe"
+import {
+  getPaymentIntent,
+  linkPaymentIntentToHostawayReservation,
+  updatePaymentIntentMetadata,
+} from "@/lib/stripe"
 import { createBookingOperation } from "@/lib/booking-operations"
 import { getListingIdBySlug } from "@/lib/listing-map"
 import { roundToTwoDecimals } from "@/lib/utils"
@@ -361,6 +365,22 @@ export async function POST(request: Request) {
           } : null,
         },
       })
+
+      try {
+        await linkPaymentIntentToHostawayReservation({
+          paymentIntentId: paymentIntent.id,
+          hostawayReservationId,
+          bookingId: booking.id,
+        })
+      } catch (metadataError: any) {
+        // The booking and payment already exist at this point. Do not report a
+        // failed booking (which could prompt a duplicate retry), but retain the
+        // local linkage and surface the Stripe sync failure for reconciliation.
+        console.error(
+          `Failed to link Stripe payment ${paymentIntent.id} to Hostaway reservation ${hostawayReservationId}:`,
+          metadataError
+        )
+      }
 
       const confirmationCode = `LR-${booking.id.substring(0, 8).toUpperCase()}`
       

@@ -73,6 +73,9 @@ export async function POST(
           reason: "requested_by_customer",
           metadata: {
             bookingId: booking.id,
+            ...(booking.hostaway_reservation_id
+              ? { hostawayReservationId: String(booking.hostaway_reservation_id) }
+              : {}),
             cancelledAt: new Date().toISOString(),
           },
         })
