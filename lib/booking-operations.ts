@@ -16,6 +16,7 @@ import {
   formatBookingAddOnPackageSelection,
   type BookingAddOnPackageSelection,
 } from './booking-add-ons'
+import { buildStripeReservationMetadata } from './stripe-reservation-metadata'
 
 /**
  * Normalize phone number for Hostaway API
@@ -143,6 +144,9 @@ export async function createBookingOperation(params: {
   }
   
   const hostawayReservationId = hostawayReservation.id || hostawayReservation.hostawayReservationId
+  const reservationStripeMetadata = buildStripeReservationMetadata({
+    hostawayReservationId,
+  })
   
   // Store booking in database (if available)
   let booking: Booking | null = null
@@ -178,7 +182,10 @@ export async function createBookingOperation(params: {
       channel_fee: pricing.channelFee,
       payment_status: paymentStatus,
       reservation_status: 'confirmed' as ReservationStatus,
-      stripe_metadata: stripeMetadata || null,
+      stripe_metadata: {
+        ...(stripeMetadata || {}),
+        ...reservationStripeMetadata,
+      },
       hostaway_metadata: hostawayReservation || null,
       notes: addOnPackage
         ? `Add-on package: ${formatBookingAddOnPackageSelection(addOnPackage)}`
@@ -242,7 +249,10 @@ export async function createBookingOperation(params: {
       channel_fee: pricing.channelFee,
       payment_status: paymentStatus,
       reservation_status: 'confirmed' as ReservationStatus,
-      stripe_metadata: stripeMetadata || null,
+      stripe_metadata: {
+        ...(stripeMetadata || {}),
+        ...reservationStripeMetadata,
+      },
       hostaway_metadata: null,
       notes: addOnPackage
         ? `Add-on package: ${formatBookingAddOnPackageSelection(addOnPackage)}`

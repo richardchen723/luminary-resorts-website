@@ -3,6 +3,7 @@
  */
 
 import Stripe from 'stripe'
+import { buildStripeReservationMetadata } from './stripe-reservation-metadata'
 
 let stripeInstance: Stripe | null = null
 
@@ -112,6 +113,36 @@ export async function updatePaymentIntentMetadata(
   metadata: Record<string, string>
 ): Promise<Stripe.PaymentIntent> {
   return await stripe.paymentIntents.update(paymentIntentId, { metadata })
+}
+
+/**
+ * Link a Stripe payment to its Hostaway reservation after Hostaway has
+ * generated the reservation ID.
+ *
+ * PaymentIntent metadata is not retroactively copied to an already-created
+ * Charge, so update both objects to keep the reservation searchable from the
+ * payment and transaction views in Stripe.
+ */
+export async function linkPaymentIntentToHostawayReservation(params: {
+  paymentIntentId: string
+  hostawayReservationId: number | string
+  bookingId?: string
+}): Promise<Stripe.PaymentIntent> {
+  const metadata = buildStripeReservationMetadata(params)
+  const paymentIntent = await stripe.paymentIntents.update(
+    params.paymentIntentId,
+    { metadata }
+  )
+
+  const latestCharge = paymentIntent.latest_charge
+  const chargeId =
+    typeof latestCharge === 'string' ? latestCharge : latestCharge?.id
+
+  if (chargeId) {
+    await stripe.charges.update(chargeId, { metadata })
+  }
+
+  return paymentIntent
 }
 
 /**
